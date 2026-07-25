@@ -1,11 +1,14 @@
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { Link, NavLink, Outlet, useNavigate } from "react-router-dom"
 import {
+  Headphones,
   Home,
   LayoutGrid,
   LogOut,
+  Megaphone,
   Menu,
-  Phone,
+  MoreHorizontal,
+  Search,
   Trophy,
   UserPlus,
   Wallet,
@@ -14,22 +17,40 @@ import {
 import { assets } from "../data/content"
 import { useAuth } from "../context/AuthContext"
 
-const SOS_RED = "#EA080E"
-
 const VLE_TABS = [
   { id: "dashboard", label: "Dashboard", to: "/vle/dashboard", end: true, Icon: Home },
   { id: "register", label: "Register", to: "/vle/register-user", Icon: UserPlus },
+  { id: "customers", label: "Customers", to: "/vle/customers", Icon: Search },
   { id: "wallet", label: "Wallet", to: "/vle/wallet", Icon: Wallet },
-  { id: "leaderboard", label: "Leaderboard", to: "/vle/leaderboard", Icon: Trophy },
+  { id: "rewards", label: "Rewards", to: "/vle/rewards", Icon: Trophy },
+]
+
+const VLE_MORE_LINKS = [
+  { label: "Marketing Kit", to: "/vle/marketing", Icon: Megaphone },
+  { label: "Support", to: "/vle/support", Icon: Headphones },
+  { label: "Leaderboard", to: "/vle/leaderboard", Icon: Trophy },
+  { label: "Website", to: "/", Icon: LayoutGrid },
 ]
 
 export default function VleLayout() {
   const { session, logout } = useAuth()
   const navigate = useNavigate()
   const [menuOpen, setMenuOpen] = useState(false)
+  const [moreOpen, setMoreOpen] = useState(false)
+  const moreRef = useRef(null)
+
+  useEffect(() => {
+    if (!moreOpen) return
+    const onOutside = (e) => {
+      if (moreRef.current && !moreRef.current.contains(e.target)) setMoreOpen(false)
+    }
+    document.addEventListener("mousedown", onOutside)
+    return () => document.removeEventListener("mousedown", onOutside)
+  }, [moreOpen])
 
   const handleLogout = () => {
     setMenuOpen(false)
+    setMoreOpen(false)
     logout()
     navigate("/")
   }
@@ -57,7 +78,7 @@ export default function VleLayout() {
       title={tab.label}
     >
       <tab.Icon size={16} />
-      {!iconOnly && <span>{tab.label}</span>}
+      {!iconOnly && <span className="hidden xl:inline">{tab.label}</span>}
       {iconOnly && <span className="sr-only">{tab.label}</span>}
     </NavLink>
   )
@@ -74,7 +95,7 @@ export default function VleLayout() {
         <div className="mx-auto flex max-w-7xl items-center gap-2 px-3 py-2 sm:gap-3 sm:px-6 sm:py-3 lg:px-8">
           <Link
             to="/vle/dashboard"
-            className="flex min-w-0 flex-1 items-center gap-2 sm:max-w-[40%] sm:flex-none sm:gap-3"
+            className="flex min-w-0 shrink-0 items-center gap-2 sm:gap-3 lg:max-w-[14rem]"
           >
             <img
               src={assets.logo}
@@ -91,33 +112,58 @@ export default function VleLayout() {
             </div>
           </Link>
 
-          <nav className="ml-auto hidden min-w-0 items-center gap-1 lg:flex" aria-label="VLE">
+          <nav
+            className="ml-auto hidden min-w-0 flex-1 items-center justify-end gap-0.5 overflow-x-auto lg:flex xl:gap-1"
+            aria-label="VLE"
+          >
             {VLE_TABS.map((tab) => renderNavLink(tab))}
           </nav>
 
-          <div className="flex shrink-0 items-center gap-1 sm:gap-2">
-            <Link
-              to="/app/sos"
-              className="tap-target inline-flex items-center justify-center gap-1.5 rounded-full px-2.5 py-2 text-sm font-semibold text-white shadow-sm transition-opacity hover:opacity-90"
-              style={{ backgroundColor: SOS_RED }}
-              aria-label="SOS Help"
-            >
-              <Phone size={16} />
-              <span className="hidden sm:inline">SOS</span>
-            </Link>
-
-            <Link to="/" className={`${mutedLinkClass} hidden md:inline-flex`} title="Website">
-              <LayoutGrid size={16} />
-              <span className="hidden lg:inline">Website</span>
-            </Link>
+          <div className="relative flex shrink-0 items-center gap-1 sm:gap-1.5">
+            <div ref={moreRef} className="relative hidden lg:block">
+              <button
+                type="button"
+                onClick={() => setMoreOpen((o) => !o)}
+                className={`${mutedLinkClass} tap-target`}
+                aria-expanded={moreOpen}
+                aria-haspopup="menu"
+                title="More"
+              >
+                <MoreHorizontal size={16} />
+                <span className="hidden xl:inline">More</span>
+              </button>
+              {moreOpen && (
+                <div
+                  className="absolute right-0 top-full z-50 mt-1 min-w-[11rem] rounded-xl border border-setu-stone/20 py-1 shadow-lg"
+                  style={{
+                    backgroundColor: "color-mix(in srgb, var(--color-setu-charcoal) 98%, transparent)",
+                  }}
+                  role="menu"
+                >
+                  {VLE_MORE_LINKS.map((link) => (
+                    <Link
+                      key={link.to}
+                      to={link.to}
+                      role="menuitem"
+                      onClick={() => setMoreOpen(false)}
+                      className="flex items-center gap-2 px-3 py-2.5 text-sm text-setu-sand/90 transition-colors hover:bg-setu-coral/10 hover:text-setu-beige"
+                    >
+                      <link.Icon size={16} />
+                      {link.label}
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
 
             <button
               type="button"
               onClick={handleLogout}
-              className="tap-target hidden items-center justify-center gap-1.5 rounded-full border border-setu-stone/25 px-2.5 py-2 text-sm font-medium text-setu-sand transition-colors hover:border-setu-coral hover:bg-setu-coral/10 hover:text-setu-beige md:inline-flex"
+              className="tap-target hidden items-center justify-center gap-1.5 rounded-full border border-setu-stone/25 px-2.5 py-2 text-sm font-medium text-setu-sand transition-colors hover:border-setu-coral hover:bg-setu-coral/10 hover:text-setu-beige lg:inline-flex"
+              title="Logout"
             >
               <LogOut size={16} />
-              <span className="hidden lg:inline">Logout</span>
+              <span className="hidden xl:inline">Logout</span>
             </button>
 
             <button
@@ -142,14 +188,17 @@ export default function VleLayout() {
           >
             <div className="mx-auto flex max-w-7xl flex-col gap-1">
               {VLE_TABS.map((tab) => renderNavLink(tab))}
-              <Link to="/" onClick={() => setMenuOpen(false)} className={mutedLinkClass}>
-                <LayoutGrid size={16} />
-                Website
-              </Link>
-              <Link to="/app/sos" onClick={() => setMenuOpen(false)} className={mutedLinkClass}>
-                <Phone size={16} />
-                SOS Help
-              </Link>
+              {VLE_MORE_LINKS.map((link) => (
+                <Link
+                  key={link.to}
+                  to={link.to}
+                  onClick={() => setMenuOpen(false)}
+                  className={mutedLinkClass}
+                >
+                  <link.Icon size={16} />
+                  {link.label}
+                </Link>
+              ))}
               <button type="button" onClick={handleLogout} className={`${mutedLinkClass} justify-start`}>
                 <LogOut size={16} />
                 Logout

@@ -3,13 +3,31 @@ import { checkUserExists, fetchUserProfile } from "../api/auth"
 import { isJwtExpired, refreshVleToken } from "../api/roleAuth"
 
 const STORAGE_KEY = "setu_auth_session"
+const API_HOST_KEY = "setu_api_host"
+
+/** Invalidate saved sessions when Vite proxy target changes (local → staging, etc.). */
+function currentApiHost() {
+  return (import.meta.env.VITE_PROXY_API_HOST || "https://staging.setuai.com").replace(/\/+$/, "")
+}
+
+function clearStoredSession() {
+  localStorage.removeItem(STORAGE_KEY)
+  localStorage.removeItem(API_HOST_KEY)
+}
 
 const AuthContext = createContext(null)
 
 function readStoredSession() {
   try {
+    const expected = currentApiHost()
+    const host = localStorage.getItem(API_HOST_KEY)
     const raw = localStorage.getItem(STORAGE_KEY)
-    return raw ? JSON.parse(raw) : null
+    if (!raw) return null
+    if (host !== expected) {
+      clearStoredSession()
+      return null
+    }
+    return JSON.parse(raw)
   } catch {
     return null
   }
@@ -17,9 +35,10 @@ function readStoredSession() {
 
 function writeStoredSession(session) {
   if (!session) {
-    localStorage.removeItem(STORAGE_KEY)
+    clearStoredSession()
     return
   }
+  localStorage.setItem(API_HOST_KEY, currentApiHost())
   localStorage.setItem(STORAGE_KEY, JSON.stringify(session))
 }
 
@@ -206,6 +225,14 @@ export function AuthProvider({ children }) {
     })
     return profile
   }, [session, updateProfile])
+
+  useEffect(() => {
+    function onSessionInvalid() {
+      logout()
+    }
+    window.addEventListener("setu:session-invalid", onSessionInvalid)
+    return () => window.removeEventListener("setu:session-invalid", onSessionInvalid)
+  }, [logout])
 
   useEffect(() => {
     function onTokens(event) {

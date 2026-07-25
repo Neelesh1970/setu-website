@@ -1,4 +1,4 @@
-import { adminAuthUrl, vleUrl } from "../config/api"
+import { adminAuthUrl, vleAuthUrl, vleUrl } from "../config/api"
 
 async function parseJson(response) {
   const data = await response.json().catch(() => ({}))
@@ -15,7 +15,7 @@ function normalizeMobile10(value) {
 
 export async function registerVle({ name, phone, email, password }) {
   const { response, data } = await parseJson(
-    await fetch(vleUrl("/register"), {
+    await fetch(vleAuthUrl("/register"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name, phone, email, password }),
@@ -39,7 +39,7 @@ export async function registerVle({ name, phone, email, password }) {
   const msg = data.message || data.error || ""
   if (response.status === 404 || /route not found/i.test(msg)) {
     throw new Error(
-      "VLE API not available on this server. For local dev set VITE_PROXY_AUTH_HOST=http://localhost:7005 in setu_website/.env and restart Vite.",
+      "VLE API not available. Check staging.setuai.com /vle and /auth are reachable.",
     )
   }
   throw new Error(msg || "VLE registration failed.")
@@ -47,7 +47,7 @@ export async function registerVle({ name, phone, email, password }) {
 
 export async function loginVle({ vleId, password }) {
   const { response, data } = await parseJson(
-    await fetch(vleUrl("/login"), {
+    await fetch(vleAuthUrl("/login"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ vleId, password }),
@@ -71,7 +71,7 @@ export async function loginVle({ vleId, password }) {
   const msg = data.message || data.error || ""
   if (response.status === 404 || /route not found/i.test(msg)) {
     throw new Error(
-      "VLE API not available. Use local SETU-AUTH: VITE_PROXY_AUTH_HOST=http://localhost:7005",
+      "VLE API not available. Ensure VITE_PROXY_* points to https://staging.setuai.com.",
     )
   }
   throw new Error(msg || "Invalid VLE ID or password.")
@@ -89,7 +89,7 @@ export function isJwtExpired(token, skewSec = 30) {
 
 export async function refreshVleToken(refreshToken) {
   const { response, data } = await parseJson(
-    await fetch(vleUrl("/refresh"), {
+    await fetch(vleAuthUrl("/refresh"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ refreshToken }),
@@ -109,10 +109,34 @@ export async function refreshVleToken(refreshToken) {
   return tokens
 }
 
+function authErrorMessage(msg, status) {
+  const text = String(msg || "")
+  if (/invalid token.*vle dashboard access only/i.test(text)) {
+    return "Wrong login type. Use /login → role VLE → VLE ID + password (not User OTP)."
+  }
+  if (/vle not found or inactive/i.test(text)) {
+    return "VLE account not found or inactive on staging. Re-register or contact admin."
+  }
+  if (/invalid or expired token/i.test(text)) {
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("setu:session-invalid"))
+    }
+    return "Session expired or token rejected by staging. Sign out, run docker-compose up -d --force-recreate vle-service on EC2, then sign in again."
+  }
+  if (status === 403) {
+    return text || "Access forbidden (403)."
+  }
+  return text || "Request failed."
+}
+
 export async function vleAuthFetch(
   path,
   { token, refreshToken, httpMethod, method, body, _retried } = {},
 ) {
+  if (!token) {
+    throw new Error("Not signed in. Use /login → VLE → VLE ID + password.")
+  }
+
   const resolvedMethod = httpMethod || method || "GET"
   const headers = {
     Accept: "application/json",
@@ -143,7 +167,7 @@ export async function vleAuthFetch(
         _retried: true,
       })
     }
-    throw new Error(msg)
+    throw new Error(authErrorMessage(msg, response.status))
   }
   return data.data ?? data
 }

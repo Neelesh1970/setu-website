@@ -24,6 +24,7 @@ export default function VleWalletPage() {
   const { session } = useAuth()
   const [tab, setTab] = useState("deposit")
   const [balance, setBalance] = useState(null)
+  const [summary, setSummary] = useState(null)
   const [transactions, setTransactions] = useState([])
   const [loading, setLoading] = useState(true)
   const [processing, setProcessing] = useState(false)
@@ -46,11 +47,13 @@ export default function VleWalletPage() {
     setLoading(true)
     setError("")
     try {
-      const [bal, tx] = await Promise.all([
+      const [bal, tx, walletSummary] = await Promise.all([
         vleAuthFetch("/dashboard/wallet/balance", { token: session.token, refreshToken: session.refreshToken }),
         vleAuthFetch("/dashboard/wallet/transactions?limit=20", { token: session.token, refreshToken: session.refreshToken }),
+        vleAuthFetch("/dashboard/wallet-summary", { token: session.token, refreshToken: session.refreshToken }),
       ])
       setBalance(bal)
+      setSummary(walletSummary)
       setTransactions(tx?.transactions || [])
     } catch (err) {
       setError(err.message || "Could not load wallet.")
@@ -197,12 +200,29 @@ export default function VleWalletPage() {
         <div className="rounded-2xl border border-[#D2DEFF] bg-[#1C39BB] p-6 text-white">
           <p className="text-sm text-white/80">Wallet balance</p>
           <p className="mt-1 font-serif text-4xl">
-            {loading ? "…" : `₹${balance?.balanceInr ?? 0}`}
+            {loading ? "…" : `₹${balance?.balanceInr ?? summary?.walletBalanceInr ?? 0}`}
           </p>
           <p className="mt-2 text-xs text-white/70">
             Deposit min ₹{minDeposit} · Withdraw min ₹{minWithdraw}
           </p>
         </div>
+
+        {summary && (
+          <div className="mt-4 grid grid-cols-3 gap-2">
+            <div className="rounded-xl border border-[#D2DEFF] bg-white p-3 text-center">
+              <p className="text-lg font-semibold">₹{summary.todayEarningsInr ?? 0}</p>
+              <p className="text-[10px] text-setu-muted">Today</p>
+            </div>
+            <div className="rounded-xl border border-[#D2DEFF] bg-white p-3 text-center">
+              <p className="text-lg font-semibold">₹{summary.monthlyEarningsInr ?? 0}</p>
+              <p className="text-[10px] text-setu-muted">This month</p>
+            </div>
+            <div className="rounded-xl border border-[#D2DEFF] bg-white p-3 text-center">
+              <p className="text-lg font-semibold">₹{summary.pendingSettlementInr ?? 0}</p>
+              <p className="text-[10px] text-setu-muted">Pending</p>
+            </div>
+          </div>
+        )}
 
         <div className="mt-4 flex rounded-xl border border-[#D2DEFF] bg-white p-1">
           <button

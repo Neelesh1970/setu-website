@@ -16,10 +16,9 @@
   RewriteRule ^api/contact$ api/contact.php [L,QSA]
   RewriteRule ^api/health$ api/health.php [L,QSA]
 
-  # API proxy (same-origin; mirrors Vite dev proxies)
-  # Direct browser calls to api.setuai.com fail CORS/CORP from setuai.com.
+  # API proxy (same-origin; mirrors Vite dev proxies → staging.setuai.com)
   RewriteRule ^assets/api(/.*)?$ api/staging-proxy.php?__path=assets/api$1 [L,QSA]
-  RewriteRule ^(auth|dashboard|sos|booktest|abha|drug|telemedicine|generic|mental|agri|schemes|fitness|reports|preventive-health|pay|amount-breakdown|jobs|notification|userprofile|healthcard|phr|matrujyoti|temple|language)(/.*)?$ api/staging-proxy.php?__path=$1$2 [L,QSA]
+  RewriteRule ^(auth|dashboard|sos|booktest|abha|drug|telemedicine|generic|mental|agri|schemes|fitness|reports|preventive-health|pay|amount-breakdown|jobs|notification|userprofile|healthcard|phr|matrujyoti|matrimony|temple|language|doctor|vle)(/.*)?$ api/staging-proxy.php?__path=$1$2 [L,QSA]
 
   # SPA fallback — serve index.html for non-file routes
   RewriteCond %{REQUEST_FILENAME} !-f
