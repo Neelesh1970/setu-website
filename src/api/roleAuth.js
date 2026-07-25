@@ -1,4 +1,4 @@
-import { adminAuthUrl, vleAuthUrl, vleUrl } from "../config/api"
+import { adminAuthUrl, vleUrl } from "../config/api"
 
 async function parseJson(response) {
   const data = await response.json().catch(() => ({}))
@@ -11,11 +11,16 @@ function normalizeMobile10(value) {
     .slice(-10)
 }
 
+/** VLE auth via SETU-VLE-service → forwards to SETU-AUTH /api/vle (stable on staging gateway). */
+function vleAuthEndpoint(path) {
+  return vleUrl(path)
+}
+
 // ─── VLE ───
 
 export async function registerVle({ name, phone, email, password }) {
   const { response, data } = await parseJson(
-    await fetch(vleAuthUrl("/register"), {
+    await fetch(vleAuthEndpoint("/register"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name, phone, email, password }),
@@ -42,12 +47,17 @@ export async function registerVle({ name, phone, email, password }) {
       "VLE API not available. Check staging.setuai.com /vle and /auth are reachable.",
     )
   }
+  if (response.status === 502) {
+    throw new Error(
+      "VLE auth unavailable (502). On EC2: docker ps | grep auth_service && docker logs auth_service --tail 30",
+    )
+  }
   throw new Error(msg || "VLE registration failed.")
 }
 
 export async function loginVle({ vleId, password }) {
   const { response, data } = await parseJson(
-    await fetch(vleAuthUrl("/login"), {
+    await fetch(vleAuthEndpoint("/login"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ vleId, password }),
@@ -74,6 +84,11 @@ export async function loginVle({ vleId, password }) {
       "VLE API not available. Ensure VITE_PROXY_* points to https://staging.setuai.com.",
     )
   }
+  if (response.status === 502) {
+    throw new Error(
+      "VLE auth unavailable (502). Check auth_service is running on staging EC2.",
+    )
+  }
   throw new Error(msg || "Invalid VLE ID or password.")
 }
 
@@ -89,7 +104,7 @@ export function isJwtExpired(token, skewSec = 30) {
 
 export async function refreshVleToken(refreshToken) {
   const { response, data } = await parseJson(
-    await fetch(vleAuthUrl("/refresh"), {
+    await fetch(vleAuthEndpoint("/refresh"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ refreshToken }),
