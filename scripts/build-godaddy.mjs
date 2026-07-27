@@ -38,7 +38,7 @@ try {
   console.log("No SMTP_PASS set — create api/config.php on server manually.")
 }
 
-/** GoDaddy FTPS often aborts large .css uploads — ship gzip + PHP wrapper instead. */
+/** GoDaddy FTPS often aborts .css/.gz uploads — ship self-contained PHP wrapper. */
 function prepareGoDaddyCss() {
   const assetsDir = path.join(dist, "assets")
   const cssFiles = fs.readdirSync(assetsDir).filter((f) => /^index-.*\.css$/.test(f))
@@ -46,23 +46,16 @@ function prepareGoDaddyCss() {
 
   const cssName = cssFiles[0]
   const cssPath = path.join(assetsDir, cssName)
-  const gzPath = path.join(assetsDir, "setu-app.css.gz")
-  fs.writeFileSync(gzPath, execSync(`gzip -c "${cssPath}"`, { encoding: undefined }))
+  const cssB64 = fs.readFileSync(cssPath).toString("base64")
 
   const php = `<?php
-/** Serves gzipped Vite CSS (GoDaddy FTPS aborts large .css uploads). */
+/** Serves Vite CSS (GoDaddy FTPS aborts large .css uploads). */
 declare(strict_types=1);
 
 header('Content-Type: text/css; charset=utf-8');
 header('Cache-Control: public, max-age=604800');
 
-$gz = __DIR__ . '/setu-app.css.gz';
-if (!is_readable($gz)) {
-    http_response_code(404);
-    exit('/* stylesheet missing */');
-}
-
-$css = gzdecode((string) file_get_contents($gz));
+$css = base64_decode('${cssB64}');
 if ($css === false) {
     http_response_code(500);
     exit('/* stylesheet decode failed */');
@@ -80,7 +73,7 @@ echo $css;
     `<link rel="stylesheet" href="/assets/app.css.php?v=${stamp}">`,
   )
   fs.writeFileSync(indexPath, html)
-  console.log(`GoDaddy CSS: ${cssName} → setu-app.css.gz + app.css.php`)
+  console.log(`GoDaddy CSS: ${cssName} → embedded app.css.php`)
 }
 
 prepareGoDaddyCss()
