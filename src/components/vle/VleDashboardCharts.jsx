@@ -255,13 +255,13 @@ export function PeriodFilter({ value, onChange }) {
     { id: "year", label: "Year" },
   ]
   return (
-    <div className="inline-flex rounded-xl border border-[#D2DEFF] bg-white p-1 shadow-sm">
+    <div className="inline-flex w-full max-w-xs rounded-xl border border-[#D2DEFF] bg-white p-1 shadow-sm sm:w-auto sm:max-w-none">
       {options.map((opt) => (
         <button
           key={opt.id}
           type="button"
           onClick={() => onChange(opt.id)}
-          className={`rounded-lg px-4 py-2 text-sm font-medium transition-all ${
+          className={`tap-target flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-all sm:flex-none sm:px-4 ${
             value === opt.id
               ? "bg-[#1C39BB] text-white shadow-sm"
               : "text-setu-muted hover:bg-[#EEF3FF] hover:text-[#1C39BB]"

@@ -13,7 +13,7 @@ import Footer from "../components/Footer"
 
 export default function MarketingPage() {
   return (
-    <div className="page-safe-bottom relative min-h-svh">
+    <div className="page-safe-bottom relative min-h-svh overflow-x-hidden">
       <Navbar />
       <main>
         <Hero />

@@ -1,61 +1,37 @@
 import { useEffect, useRef, useState } from "react"
 import { motion } from "framer-motion"
-import { ArrowDown, Pause, Play } from "lucide-react"
+import { ArrowDown, Play } from "lucide-react"
 import { assets } from "../data/content"
 import FadeIn from "./FadeIn"
 import VideoModal from "./VideoModal"
 
 export default function Hero({ onWatchStory }) {
   const videoRef = useRef(null)
-  const [playing, setPlaying] = useState(true)
   const [storyOpen, setStoryOpen] = useState(false)
 
   useEffect(() => {
     const video = videoRef.current
     if (!video) return undefined
 
-    const tryPlay = async () => {
-      try {
-        await video.play()
-        setPlaying(true)
-      } catch {
-        setPlaying(false)
-      }
-    }
-
-    tryPlay()
+    video.play().catch(() => {})
 
     return undefined
   }, [])
 
-  const toggleVideo = () => {
-    const video = videoRef.current
-    if (!video) return
-
-    if (video.paused) {
-      video.play()
-      setPlaying(true)
-    } else {
-      video.pause()
-      setPlaying(false)
-    }
-  }
-
   const openStory = () => {
     videoRef.current?.pause()
-    setPlaying(false)
     setStoryOpen(true)
     onWatchStory?.()
   }
 
   return (
     <>
-      <section className="relative z-0 flex h-svh min-h-svh items-end overflow-hidden">
-        <div className="absolute inset-0 bg-setu-teal-deep">
+      <section className="hero-edge-to-edge relative z-0 flex items-end overflow-hidden bg-setu-teal-deep">
+        <div className="hero-media-layer bg-setu-teal-deep">
           {/* Solid teal holds the frame — no fallback still image (avoids flicker). */}
           <video
             ref={videoRef}
-            className="absolute inset-0 z-[2] h-full w-full object-cover"
+            className="hero-media absolute inset-0 z-[2] h-full w-full"
             autoPlay
             muted
             loop
@@ -71,7 +47,7 @@ export default function Hero({ onWatchStory }) {
           className="absolute inset-0 z-[3] bg-gradient-to-t from-setu-charcoal/55 via-setu-charcoal/15 to-transparent"
         />
 
-        <div className="relative z-10 mx-auto w-full max-w-7xl px-4 pb-32 pt-28 sm:px-6 sm:pb-36 sm:pt-36 lg:px-8 lg:pb-40 lg:pt-44">
+        <div className="relative z-10 mx-auto w-full max-w-7xl px-4 pb-28 pt-[max(6.5rem,calc(env(safe-area-inset-top,0px)+5rem))] sm:px-6 sm:pb-36 sm:pt-36 lg:px-8 lg:pb-40 lg:pt-44">
           <div className="max-w-3xl">
             <FadeIn>
               <p className="mb-6 text-sm font-medium uppercase tracking-[0.2em] text-setu-cream/95 drop-shadow-md">
@@ -119,15 +95,6 @@ export default function Hero({ onWatchStory }) {
             <ArrowDown className="text-setu-stone/50" size={22} />
           </motion.div>
         </div>
-
-        <button
-          type="button"
-          onClick={toggleVideo}
-          className="absolute bottom-6 right-4 z-10 flex h-10 w-10 items-center justify-center rounded-full border border-setu-cream/20 bg-setu-charcoal/45 text-setu-cream backdrop-blur-sm transition-colors hover:bg-setu-charcoal/65 sm:bottom-8 sm:right-6 sm:h-11 sm:w-11 lg:bottom-10"
-          aria-label={playing ? "Pause background video" : "Play background video"}
-        >
-          {playing ? <Pause size={18} /> : <Play size={18} fill="currentColor" />}
-        </button>
       </section>
 
       <VideoModal

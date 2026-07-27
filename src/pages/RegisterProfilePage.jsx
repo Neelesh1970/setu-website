@@ -20,8 +20,8 @@ export default function RegisterProfilePage() {
 
   if (!mobile) {
     return (
-      <div className="flex page-safe-top page-safe-bottom min-h-svh items-center justify-center bg-setu-cream app-safe-x">
-        <div className="text-center">
+      <div className="auth-page-shell bg-setu-cream">
+        <div className="auth-page-inner items-center justify-center text-center">
           <p className="text-setu-muted">Start registration with your mobile number first.</p>
           <Link to="/register" className="mt-4 inline-block text-setu-teal hover:underline">
             Go to register
@@ -64,11 +64,11 @@ export default function RegisterProfilePage() {
   }
 
   return (
-    <div className="page-safe-top page-safe-bottom min-h-svh bg-[#F7FAFF]">
-      <div className="mx-auto flex min-h-svh max-w-lg flex-col justify-center px-4 py-10 app-safe-x">
+    <div className="auth-page-shell">
+      <div className="auth-page-inner">
         <Link
           to="/register"
-          className="mb-8 inline-flex items-center gap-2 text-sm text-setu-muted transition-colors hover:text-setu-charcoal"
+          className="mb-6 inline-flex min-h-[44px] items-center gap-2 text-sm text-setu-muted transition-colors hover:text-setu-charcoal sm:mb-8"
         >
           <ArrowLeft size={16} />
           Back

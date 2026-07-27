@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import { Link, NavLink, Outlet, useNavigate } from "react-router-dom"
 import {
   Headphones,
@@ -38,6 +38,29 @@ export default function VleLayout() {
   const [menuOpen, setMenuOpen] = useState(false)
   const [moreOpen, setMoreOpen] = useState(false)
   const moreRef = useRef(null)
+  const headerRef = useRef(null)
+
+  useLayoutEffect(() => {
+    const header = headerRef.current
+    if (!header) return
+
+    const syncHeaderHeight = () => {
+      document.documentElement.style.setProperty(
+        "--vle-header-height",
+        `${header.offsetHeight}px`,
+      )
+    }
+
+    syncHeaderHeight()
+    const observer = new ResizeObserver(syncHeaderHeight)
+    observer.observe(header)
+    window.addEventListener("resize", syncHeaderHeight)
+
+    return () => {
+      observer.disconnect()
+      window.removeEventListener("resize", syncHeaderHeight)
+    }
+  }, [menuOpen])
 
   useEffect(() => {
     if (!moreOpen) return
@@ -86,6 +109,7 @@ export default function VleLayout() {
   return (
     <div className="flex min-h-svh min-h-dvh flex-col overflow-x-hidden bg-[#F7FAFF]">
       <header
+        ref={headerRef}
         className="app-safe-top sticky top-0 z-40 border-b text-setu-sand shadow-sm backdrop-blur-md"
         style={{
           backgroundColor: "color-mix(in srgb, var(--color-setu-charcoal) 92%, transparent)",
@@ -210,7 +234,7 @@ export default function VleLayout() {
 
       {/* Tablet: compact icon nav */}
       <nav
-        className="sticky top-[var(--vle-nav-offset,3.25rem)] z-30 hidden border-b border-[#D2DEFF] bg-white/95 px-2 py-2 backdrop-blur-sm md:flex lg:hidden"
+        className="sticky top-[var(--vle-header-height,3.25rem)] z-30 hidden border-b border-[#D2DEFF] bg-white/95 px-2 py-2 backdrop-blur-sm md:flex lg:hidden"
         aria-label="VLE tabs"
       >
         <div className="mx-auto flex w-full max-w-7xl items-center justify-center gap-1">
@@ -236,8 +260,7 @@ export default function VleLayout() {
 
       {/* Mobile bottom nav — matches app-style thumb reach */}
       <nav
-        className="fixed inset-x-0 bottom-0 z-40 border-t border-[#D2DEFF] bg-white/95 backdrop-blur-md md:hidden"
-        style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom, 0px))" }}
+        className="app-bottom-nav fixed inset-x-0 bottom-0 z-40 border-t border-[#D2DEFF] bg-white/95 backdrop-blur-md md:hidden"
         aria-label="VLE bottom navigation"
       >
         <div className="mx-auto flex max-w-lg items-stretch justify-around px-1 pt-1">
@@ -269,7 +292,7 @@ export default function VleLayout() {
         </div>
       </nav>
 
-      <div className="min-w-0 flex-1 overflow-x-hidden pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))] md:pb-0">
+      <div className="vle-main-with-bottom-nav min-w-0 flex-1 overflow-x-hidden md:pb-0">
         <Outlet />
       </div>
     </div>

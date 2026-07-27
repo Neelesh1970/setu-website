@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react"
 import { ArrowDownToLine, ArrowUpFromLine, Loader2 } from "lucide-react"
 import { useAuth } from "../../context/AuthContext"
 import { vleAuthFetch } from "../../api/roleAuth"
-import { openRazorpayCheckout, RAZORPAY_KEY_ID } from "../../utils/razorpayCheckout"
+import { openRazorpayCheckout, resolveRazorpayKeyId, buildRazorpayPrefill } from "../../utils/razorpayCheckout"
 
 function statusLabel(status) {
   if (status === "completed") return "Success"
@@ -89,19 +89,18 @@ export default function VleWalletPage() {
       pendingOrderId = order.id
 
       const payment = await openRazorpayCheckout({
-        key: orderData.keyId || RAZORPAY_KEY_ID,
+        key: resolveRazorpayKeyId(orderData.keyId),
         amount: order.amount,
         currency: order.currency || "INR",
         name: "SETU VLE Wallet",
         description: "Add money to VLE wallet",
         order_id: order.id,
-        prefill: {
-          name: session?.name || "",
-          email: session?.email || "",
-          contact: session?.phone || "",
-        },
+        prefill: buildRazorpayPrefill({
+          name: session?.name,
+          email: session?.email,
+          contact: session?.phone,
+        }),
         theme: { color: "#1C39BB" },
-        method: { upi: true, netbanking: true, card: true, wallet: true },
       })
 
       const result = await vleAuthFetch("/dashboard/wallet/deposit/confirm", {

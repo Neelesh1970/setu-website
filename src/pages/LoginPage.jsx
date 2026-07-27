@@ -224,30 +224,30 @@ export default function LoginPage() {
   const roleMeta = ACCOUNT_ROLES.find((r) => r.value === accountRole)
 
   return (
-    <div className="page-safe-top page-safe-bottom min-h-svh bg-[#F7FAFF]">
-      <div className="mx-auto flex min-h-svh max-w-lg flex-col justify-center px-4 py-10 app-safe-x">
+    <div className="auth-page-shell">
+      <div className="auth-page-inner">
         <Link
           to="/"
-          className="mb-8 inline-flex items-center gap-2 text-sm text-setu-muted transition-colors hover:text-setu-charcoal"
+          className="mb-6 inline-flex min-h-[44px] items-center gap-2 text-sm text-setu-muted transition-colors hover:text-setu-charcoal sm:mb-8"
         >
           <ArrowLeft size={16} />
           Back to website
         </Link>
 
         <div className="overflow-hidden rounded-[1.75rem] border border-[#D2DEFF] bg-white shadow-sm">
-          <div className="bg-[#1C39BB] px-6 py-6 text-white sm:px-8">
+          <div className="bg-[#1C39BB] px-5 py-5 text-white sm:px-8 sm:py-6">
             <img
               src={assets.logo}
               alt="SETU"
-              className="mb-4 h-9 w-auto brightness-0 invert"
+              className="mb-3 h-8 w-auto brightness-0 invert sm:mb-4 sm:h-9"
             />
-            <h1 className="font-serif text-2xl sm:text-3xl">
+            <h1 className="font-serif text-xl sm:text-3xl">
               {isRegister ? "Create account" : "Sign in to SETU"}
             </h1>
             <p className="mt-1 text-sm text-white/80">{roleMeta?.hint}</p>
           </div>
 
-          <div className="p-6 sm:p-8">
+          <div className="p-5 sm:p-8">
             <label className="mb-4 block">
               <span className="mb-2 block text-sm font-medium text-setu-charcoal">
                 Account type
@@ -325,7 +325,7 @@ export default function LoginPage() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#1C39BB] px-5 py-3 text-sm font-semibold text-white disabled:opacity-60"
+                  className="tap-target inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#1C39BB] px-5 py-3 text-sm font-semibold text-white disabled:opacity-60"
                 >
                   {loading && <Loader2 size={16} className="animate-spin" />}
                   Send OTP
@@ -354,7 +354,7 @@ export default function LoginPage() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#1C39BB] px-5 py-3 text-sm font-semibold text-white disabled:opacity-60"
+                  className="tap-target inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#1C39BB] px-5 py-3 text-sm font-semibold text-white disabled:opacity-60"
                 >
                   {loading && <Loader2 size={16} className="animate-spin" />}
                   Verify & continue
@@ -432,7 +432,7 @@ export default function LoginPage() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#1C39BB] px-5 py-3 text-sm font-semibold text-white disabled:opacity-60"
+                  className="tap-target inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#1C39BB] px-5 py-3 text-sm font-semibold text-white disabled:opacity-60"
                 >
                   {loading && <Loader2 size={16} className="animate-spin" />}
                   {isRegister ? "Register as VLE" : "Sign in to VLE dashboard"}
@@ -492,7 +492,7 @@ export default function LoginPage() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#1C39BB] px-5 py-3 text-sm font-semibold text-white disabled:opacity-60"
+                  className="tap-target inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#1C39BB] px-5 py-3 text-sm font-semibold text-white disabled:opacity-60"
                 >
                   {loading && <Loader2 size={16} className="animate-spin" />}
                   {isRegister ? "Register as coordinator" : "Sign in"}

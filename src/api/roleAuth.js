@@ -1,4 +1,4 @@
-import { adminAuthUrl, vleUrl } from "../config/api"
+import { adminAuthUrl, vleAuthUrl, vleUrl } from "../config/api"
 
 async function parseJson(response) {
   const data = await response.json().catch(() => ({}))
@@ -11,9 +11,9 @@ function normalizeMobile10(value) {
     .slice(-10)
 }
 
-/** VLE auth via SETU-VLE-service → forwards to SETU-AUTH /api/vle (stable on staging gateway). */
+/** VLE login/register/refresh — SETU-AUTH /api/vle (same as Postman: /auth/api/vle/login). */
 function vleAuthEndpoint(path) {
-  return vleUrl(path)
+  return vleAuthUrl(path)
 }
 
 // ─── VLE ───
@@ -79,6 +79,11 @@ export async function loginVle({ vleId, password }) {
     }
   }
   const msg = data.message || data.error || ""
+  if (/invalid or expired token/i.test(msg)) {
+    throw new Error(
+      "VLE login misrouted (got token error instead of credentials check). Hard refresh the page and try again.",
+    )
+  }
   if (response.status === 404 || /route not found/i.test(msg)) {
     throw new Error(
       "VLE API not available. Ensure VITE_PROXY_* points to https://staging.setuai.com.",
@@ -139,9 +144,26 @@ function authErrorMessage(msg, status) {
     return "Session expired or token rejected by staging. Sign out, run docker-compose up -d --force-recreate vle-service on EC2, then sign in again."
   }
   if (status === 403) {
-    return text || "Access forbidden (403)."
+    return (
+      text ||
+      "VLE dashboard rejected your token. On EC2, set the same VLE_JWT_SECRET and DB_* in SETU-VLE-service/.env, then run: docker-compose up -d --force-recreate vle-service"
+    )
   }
   return text || "Request failed."
+}
+
+/** Wallet, user registration, leaderboard → SETU-AUTH. Analytics/overview → SETU-VLE-service. */
+function resolveVleFetchUrl(path) {
+  const normalized = path.startsWith("/") ? path : `/${path}`
+  const pathname = normalized.split("?")[0]
+  const usesAuth =
+    pathname.startsWith("/dashboard/wallet") ||
+    pathname.startsWith("/dashboard/users") ||
+    pathname === "/dashboard/leaderboard" ||
+    pathname.startsWith("/dashboard/leaderboard/") ||
+    pathname === "/dashboard/profile" ||
+    pathname === "/dashboard/stats"
+  return usesAuth ? vleAuthUrl(normalized) : vleUrl(normalized)
 }
 
 export async function vleAuthFetch(
@@ -159,7 +181,7 @@ export async function vleAuthFetch(
   }
   if (body) headers["Content-Type"] = "application/json"
   const { response, data } = await parseJson(
-    await fetch(vleUrl(path), {
+    await fetch(resolveVleFetchUrl(path), {
       method: resolvedMethod,
       headers,
       body: body ? JSON.stringify(body) : undefined,

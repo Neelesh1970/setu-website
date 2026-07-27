@@ -11,6 +11,10 @@ function rankLabel(rank) {
   return `#${rank}`
 }
 
+function formatInr(value) {
+  return Number(value || 0).toLocaleString("en-IN")
+}
+
 export default function VleRewardsPage() {
   const { session } = useAuth()
   const [loading, setLoading] = useState(true)
@@ -44,9 +48,11 @@ export default function VleRewardsPage() {
     <div className="page-safe-bottom mx-auto max-w-4xl px-4 py-6 app-safe-x sm:py-8">
       <div className="mb-6">
         <p className="text-sm font-medium text-[#1C39BB]">Grand Prize</p>
-        <h1 className="font-serif text-2xl text-setu-charcoal">₹5,00,000 challenge</h1>
+        <h1 className="font-serif text-2xl text-setu-charcoal">
+          ₹{formatInr(gp.prizeInr ?? 500000)} challenge
+        </h1>
         <p className="mt-1 text-sm text-setu-muted">
-          First VLE to complete 500 paid registrations wins — only one winner nationwide.
+          First VLE to complete {gp.targetRegistrations ?? 500} paid registrations wins — only one winner nationwide.
         </p>
       </div>
 

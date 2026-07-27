@@ -6,8 +6,8 @@ export default function CoordinatorDashboardPage() {
   const roles = Array.isArray(session?.roles) ? session.roles : []
 
   return (
-    <div className="page-safe-top page-safe-bottom min-h-svh bg-[#F7FAFF]">
-      <div className="mx-auto max-w-4xl px-4 py-8 app-safe-x">
+    <div className="auth-page-shell">
+      <div className="auth-page-inner auth-page-inner--wide">
         <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
           <div>
             <p className="text-sm font-medium text-[#1C39BB]">District Coordinator</p>
