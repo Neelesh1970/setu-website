@@ -1,5 +1,9 @@
 import { Outlet, Routes, Route } from "react-router-dom"
 import MarketingPage from "./pages/MarketingPage"
+import PrivacyPolicyPage from "./pages/legal/PrivacyPolicyPage"
+import TermsPage from "./pages/legal/TermsPage"
+import RefundPolicyPage from "./pages/legal/RefundPolicyPage"
+import ContactPage from "./pages/legal/ContactPage"
 import LoginPage from "./pages/LoginPage"
 import RegisterProfilePage from "./pages/RegisterProfilePage"
 import RegisterCompletePage from "./pages/RegisterCompletePage"
@@ -7,6 +11,10 @@ import VleDashboardPage from "./pages/vle/VleDashboardPage"
 import VleRegisterUserPage from "./pages/vle/VleRegisterUserPage"
 import VleWalletPage from "./pages/vle/VleWalletPage"
 import VleLeaderboardPage from "./pages/vle/VleLeaderboardPage"
+import VleCustomersPage from "./pages/vle/VleCustomersPage"
+import VleRewardsPage from "./pages/vle/VleRewardsPage"
+import VleMarketingPage from "./pages/vle/VleMarketingPage"
+import VleSupportPage from "./pages/vle/VleSupportPage"
 import VleLayout from "./layouts/VleLayout"
 import CoordinatorDashboardPage from "./pages/coordinator/CoordinatorDashboardPage"
 import RoleProtectedRoute from "./components/RoleProtectedRoute"
@@ -157,6 +165,10 @@ export default function App() {
   return (
     <Routes>
       <Route path="/" element={<MarketingPage />} />
+      <Route path="/privacy" element={<PrivacyPolicyPage />} />
+      <Route path="/terms" element={<TermsPage />} />
+      <Route path="/refund" element={<RefundPolicyPage />} />
+      <Route path="/contact" element={<ContactPage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<LoginPage />} />
       <Route path="/register/profile" element={<RegisterProfilePage />} />
@@ -173,6 +185,10 @@ export default function App() {
         <Route path="dashboard" element={<VleDashboardPage />} />
         <Route path="wallet" element={<VleWalletPage />} />
         <Route path="register-user" element={<VleRegisterUserPage />} />
+        <Route path="customers" element={<VleCustomersPage />} />
+        <Route path="rewards" element={<VleRewardsPage />} />
+        <Route path="marketing" element={<VleMarketingPage />} />
+        <Route path="support" element={<VleSupportPage />} />
         <Route path="leaderboard" element={<VleLeaderboardPage />} />
       </Route>
       <Route

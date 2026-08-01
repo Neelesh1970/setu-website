@@ -168,7 +168,7 @@ export default function Navbar() {
   return (
     <>
       <header
-        className="pointer-events-none fixed inset-x-0 z-50 flex justify-center"
+        className="pointer-events-none fixed inset-x-0 z-50 flex lg:justify-center"
         style={{
           top: 0,
           paddingTop: "max(0.75rem, env(safe-area-inset-top, 0px))",
@@ -176,15 +176,22 @@ export default function Navbar() {
           paddingRight: "max(0.75rem, env(safe-area-inset-right, 0px))",
         }}
       >
-        {/* Mobile / tablet bar — full available width, never overflows */}
-        <nav
-          className="pointer-events-auto flex w-full max-w-lg items-center justify-between gap-2 rounded-full border px-3 py-2 backdrop-blur-md lg:hidden"
-          style={pillStyle}
-        >
+        {/* Mobile / tablet — hamburger left corner, logo center, login right */}
+        <nav className="pointer-events-auto relative flex w-full items-center lg:hidden">
+          <button
+            type="button"
+            className="tap-target inline-flex shrink-0 items-center justify-center rounded-full border p-2 text-setu-sand backdrop-blur-md transition-colors hover:text-setu-beige"
+            style={pillStyle}
+            onClick={() => setMobileOpen(true)}
+            aria-label="Open menu"
+          >
+            <Menu size={20} />
+          </button>
+
           <a
             href="/"
             onClick={() => handleAnchorClick("/")}
-            className="flex min-w-0 shrink-0 items-center"
+            className="absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 items-center"
           >
             <img
               src={assets.logo}
@@ -193,16 +200,8 @@ export default function Navbar() {
             />
           </a>
 
-          <div className="flex shrink-0 items-center gap-1.5">
+          <div className="ml-auto shrink-0">
             <AuthCta />
-            <button
-              type="button"
-              className="tap-target inline-flex items-center justify-center rounded-full p-2 text-setu-sand transition-colors hover:text-setu-beige"
-              onClick={() => setMobileOpen(true)}
-              aria-label="Open menu"
-            >
-              <Menu size={20} />
-            </button>
           </div>
         </nav>
 

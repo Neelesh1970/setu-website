@@ -3,7 +3,12 @@ import { Link } from "react-router-dom"
 import { Loader2 } from "lucide-react"
 import { useAuth } from "../../context/AuthContext"
 import { normalizeMobile10, vleAuthFetch } from "../../api/roleAuth"
-import { openRazorpayCheckout, RAZORPAY_KEY_ID } from "../../utils/razorpayCheckout"
+import {
+  buildRazorpayPrefill,
+  openRazorpayCheckout,
+  resolveRazorpayKeyId,
+} from "../../utils/razorpayCheckout"
+import { VLE_REGISTRATION_FEE_INR } from "../../constants/vle"
 
 const OTP_LENGTH = 6
 
@@ -22,7 +27,9 @@ export default function VleRegisterUserPage() {
     pincode: "",
   })
   const [otp, setOtp] = useState("")
+  const [paymentOrder, setPaymentOrder] = useState(null)
   const [loading, setLoading] = useState(false)
+  const [paying, setPaying] = useState(false)
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
 
@@ -61,6 +68,7 @@ export default function VleRegisterUserPage() {
         body: { phoneNumber: phone, appHash: "DiubbEJbhXR" },
       })
       update("phoneNumber", phone)
+      setPaymentOrder(null)
       setStep("otp")
     } catch (err) {
       setError(err.message || "Failed to send OTP.")
@@ -69,7 +77,7 @@ export default function VleRegisterUserPage() {
     }
   }
 
-  const handleVerifyPayAndRegister = async (e) => {
+  const handleVerifyOtp = async (e) => {
     e.preventDefault()
     setError("")
     setSuccess("")
@@ -92,7 +100,7 @@ export default function VleRegisterUserPage() {
       if (skipPayment) {
         await vleAuthFetch("/dashboard/users/register", {
           token: session.token,
-        refreshToken: session.refreshToken,
+          refreshToken: session.refreshToken,
           method: "POST",
           body: registerUserPayload(),
         })
@@ -109,30 +117,54 @@ export default function VleRegisterUserPage() {
       })
 
       const razorpayOrder = orderData.order
-      const amountPaise = razorpayOrder?.amount
+      const amountPaise = Number(razorpayOrder?.amount)
       const amountInr = orderData.amountInr ?? (amountPaise ? amountPaise / 100 : 200)
 
-      if (!razorpayOrder?.id) {
+      if (!razorpayOrder?.id || !amountPaise) {
         throw new Error("Could not create payment order.")
       }
 
-      setSuccess(`Opening Razorpay checkout for ₹${amountInr}…`)
-
-      const payment = await openRazorpayCheckout({
-        key: orderData.keyId || RAZORPAY_KEY_ID,
-        amount: amountPaise,
+      setPaymentOrder({
+        keyId: resolveRazorpayKeyId(orderData.keyId),
+        orderId: razorpayOrder.id,
+        amountPaise,
+        amountInr,
         currency: razorpayOrder.currency || "INR",
+      })
+      setSuccess(`Phone verified. Pay ₹${amountInr} to complete registration.`)
+      setStep("pay")
+    } catch (err) {
+      setError(err.message || "OTP verification failed.")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handlePay = async () => {
+    if (!paymentOrder) {
+      setError("Payment session expired. Go back and verify OTP again.")
+      return
+    }
+
+    setError("")
+    setPaying(true)
+    try {
+      const payment = await openRazorpayCheckout({
+        key: paymentOrder.keyId,
+        amount: paymentOrder.amountPaise,
+        currency: paymentOrder.currency,
         name: "SETU",
         description: "User registration fee",
-        order_id: razorpayOrder.id,
-        prefill: {
-          name: form.name.trim(),
-          email: form.email.trim() || undefined,
+        order_id: paymentOrder.orderId,
+        prefill: buildRazorpayPrefill({
+          name: form.name,
+          email: form.email,
           contact: form.phoneNumber,
-        },
+        }),
         theme: { color: "#1C39BB" },
       })
 
+      setLoading(true)
       await vleAuthFetch("/dashboard/users/register", {
         token: session.token,
         refreshToken: session.refreshToken,
@@ -146,16 +178,17 @@ export default function VleRegisterUserPage() {
       })
 
       setSuccess(
-        `User registered successfully. Payment of ₹${amountInr} confirmed. ₹100 commission added to your wallet.`,
+        `User registered successfully. Payment of ₹${paymentOrder.amountInr} confirmed. ₹100 commission added to your wallet.`,
       )
       setStep("done")
     } catch (err) {
       if (err.message === "Payment cancelled") {
-        setError("Payment was cancelled. You can try again.")
+        setError("Payment was cancelled. Tap Pay again when ready.")
       } else {
-        setError(err.message || "Registration failed.")
+        setError(err.message || "Payment failed.")
       }
     } finally {
+      setPaying(false)
       setLoading(false)
     }
   }
@@ -165,7 +198,8 @@ export default function VleRegisterUserPage() {
         <div className="rounded-2xl border border-[#D2DEFF] bg-white p-6 shadow-sm">
           <h1 className="font-serif text-xl text-setu-charcoal">Register user</h1>
           <p className="mt-1 text-sm text-setu-muted">
-            Required: phone, name, age, gender. OTP verification + Razorpay payment.
+            Required: phone, name, age, gender. OTP verification + one-time ₹
+            {VLE_REGISTRATION_FEE_INR} registration payment (not annual).
           </p>
 
           {step === "details" && (
@@ -240,7 +274,7 @@ export default function VleRegisterUserPage() {
           )}
 
           {step === "otp" && (
-            <form onSubmit={handleVerifyPayAndRegister} className="mt-6 space-y-3">
+            <form onSubmit={handleVerifyOtp} className="mt-6 space-y-3">
               <p className="text-sm text-setu-muted">
                 OTP sent to +91 {form.phoneNumber}
               </p>
@@ -258,9 +292,38 @@ export default function VleRegisterUserPage() {
                 className="flex w-full items-center justify-center gap-2 rounded-full bg-[#1C39BB] py-3 text-sm font-semibold text-white disabled:opacity-60"
               >
                 {loading && <Loader2 size={16} className="animate-spin" />}
-                {loading ? "Processing…" : "Verify OTP & pay with Razorpay"}
+                {loading ? "Verifying…" : "Verify OTP"}
               </button>
             </form>
+          )}
+
+          {step === "pay" && paymentOrder && (
+            <div className="mt-6 space-y-3">
+              <p className="text-sm text-setu-muted">
+                Registering +91 {form.phoneNumber} · {form.name.trim()}
+              </p>
+              <div className="rounded-xl border border-[#D2DEFF] bg-[#F7FAFF] px-4 py-3 text-sm">
+                <p className="font-medium text-setu-charcoal">One-time registration fee</p>
+                <p className="mt-1 text-2xl font-semibold text-[#1C39BB]">
+                  ₹{paymentOrder.amountInr ?? VLE_REGISTRATION_FEE_INR}
+                </p>
+                <p className="mt-1 text-setu-muted">
+                  Paid once at registration — not an annual subscription. UPI, card, netbanking, and
+                  wallet accepted.
+                </p>
+              </div>
+              {error && <p className="text-sm text-red-600">{error}</p>}
+              {success && !error && <p className="text-sm text-[#1C39BB]">{success}</p>}
+              <button
+                type="button"
+                onClick={handlePay}
+                disabled={paying || loading}
+                className="flex w-full items-center justify-center gap-2 rounded-full bg-[#1C39BB] py-3 text-sm font-semibold text-white disabled:opacity-60"
+              >
+                {(paying || loading) && <Loader2 size={16} className="animate-spin" />}
+                {paying ? "Opening Razorpay…" : loading ? "Completing registration…" : `Pay ₹${paymentOrder.amountInr}`}
+              </button>
+            </div>
           )}
 
           {step === "done" && (

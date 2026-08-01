@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react"
 import { ArrowDownToLine, ArrowUpFromLine, Loader2 } from "lucide-react"
 import { useAuth } from "../../context/AuthContext"
 import { vleAuthFetch } from "../../api/roleAuth"
-import { openRazorpayCheckout, RAZORPAY_KEY_ID } from "../../utils/razorpayCheckout"
+import { openRazorpayCheckout, resolveRazorpayKeyId, buildRazorpayPrefill } from "../../utils/razorpayCheckout"
 
 function statusLabel(status) {
   if (status === "completed") return "Success"
@@ -24,6 +24,7 @@ export default function VleWalletPage() {
   const { session } = useAuth()
   const [tab, setTab] = useState("deposit")
   const [balance, setBalance] = useState(null)
+  const [summary, setSummary] = useState(null)
   const [transactions, setTransactions] = useState([])
   const [loading, setLoading] = useState(true)
   const [processing, setProcessing] = useState(false)
@@ -46,12 +47,19 @@ export default function VleWalletPage() {
     setLoading(true)
     setError("")
     try {
-      const [bal, tx] = await Promise.all([
+      const [balResult, txResult, summaryResult] = await Promise.allSettled([
         vleAuthFetch("/dashboard/wallet/balance", { token: session.token, refreshToken: session.refreshToken }),
         vleAuthFetch("/dashboard/wallet/transactions?limit=20", { token: session.token, refreshToken: session.refreshToken }),
+        vleAuthFetch("/dashboard/wallet-summary", { token: session.token, refreshToken: session.refreshToken }),
       ])
-      setBalance(bal)
-      setTransactions(tx?.transactions || [])
+      if (balResult.status === "fulfilled") {
+        setBalance(balResult.value)
+        setError("")
+      } else {
+        setError(balResult.reason?.message || "Could not load wallet balance.")
+      }
+      if (txResult.status === "fulfilled") setTransactions(txResult.value?.transactions || [])
+      if (summaryResult.status === "fulfilled") setSummary(summaryResult.value)
     } catch (err) {
       setError(err.message || "Could not load wallet.")
     } finally {
@@ -86,19 +94,18 @@ export default function VleWalletPage() {
       pendingOrderId = order.id
 
       const payment = await openRazorpayCheckout({
-        key: orderData.keyId || RAZORPAY_KEY_ID,
+        key: resolveRazorpayKeyId(orderData.keyId),
         amount: order.amount,
         currency: order.currency || "INR",
         name: "SETU VLE Wallet",
         description: "Add money to VLE wallet",
         order_id: order.id,
-        prefill: {
-          name: session?.name || "",
-          email: session?.email || "",
-          contact: session?.phone || "",
-        },
+        prefill: buildRazorpayPrefill({
+          name: session?.name,
+          email: session?.email,
+          contact: session?.phone,
+        }),
         theme: { color: "#1C39BB" },
-        method: { upi: true, netbanking: true, card: true, wallet: true },
       })
 
       const result = await vleAuthFetch("/dashboard/wallet/deposit/confirm", {
@@ -197,12 +204,29 @@ export default function VleWalletPage() {
         <div className="rounded-2xl border border-[#D2DEFF] bg-[#1C39BB] p-6 text-white">
           <p className="text-sm text-white/80">Wallet balance</p>
           <p className="mt-1 font-serif text-4xl">
-            {loading ? "…" : `₹${balance?.balanceInr ?? 0}`}
+            {loading ? "…" : `₹${balance?.balanceInr ?? summary?.walletBalanceInr ?? 0}`}
           </p>
           <p className="mt-2 text-xs text-white/70">
             Deposit min ₹{minDeposit} · Withdraw min ₹{minWithdraw}
           </p>
         </div>
+
+        {summary && (
+          <div className="mt-4 grid grid-cols-3 gap-2">
+            <div className="rounded-xl border border-[#D2DEFF] bg-white p-3 text-center">
+              <p className="text-lg font-semibold">₹{summary.todayEarningsInr ?? 0}</p>
+              <p className="text-[10px] text-setu-muted">Today</p>
+            </div>
+            <div className="rounded-xl border border-[#D2DEFF] bg-white p-3 text-center">
+              <p className="text-lg font-semibold">₹{summary.monthlyEarningsInr ?? 0}</p>
+              <p className="text-[10px] text-setu-muted">This month</p>
+            </div>
+            <div className="rounded-xl border border-[#D2DEFF] bg-white p-3 text-center">
+              <p className="text-lg font-semibold">₹{summary.pendingSettlementInr ?? 0}</p>
+              <p className="text-[10px] text-setu-muted">Pending</p>
+            </div>
+          </div>
+        )}
 
         <div className="mt-4 flex rounded-xl border border-[#D2DEFF] bg-white p-1">
           <button

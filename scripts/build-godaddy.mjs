@@ -38,6 +38,46 @@ try {
   console.log("No SMTP_PASS set — create api/config.php on server manually.")
 }
 
+/** GoDaddy FTPS often aborts .css/.gz uploads — ship self-contained PHP wrapper. */
+function prepareGoDaddyCss() {
+  const assetsDir = path.join(dist, "assets")
+  const cssFiles = fs.readdirSync(assetsDir).filter((f) => /^index-.*\.css$/.test(f))
+  if (!cssFiles.length) return
+
+  const cssName = cssFiles[0]
+  const cssPath = path.join(assetsDir, cssName)
+  const cssB64 = fs.readFileSync(cssPath).toString("base64")
+
+  const php = `<?php
+/** Serves Vite CSS (GoDaddy FTPS aborts large .css uploads). */
+declare(strict_types=1);
+
+header('Content-Type: text/css; charset=utf-8');
+header('Cache-Control: public, max-age=604800');
+
+$css = base64_decode('${cssB64}');
+if ($css === false) {
+    http_response_code(500);
+    exit('/* stylesheet decode failed */');
+}
+
+echo $css;
+`
+  fs.writeFileSync(path.join(assetsDir, "app.css.php"), php)
+
+  const indexPath = path.join(dist, "index.html")
+  let html = fs.readFileSync(indexPath, "utf8")
+  const stamp = new Date().toISOString().slice(0, 10).replace(/-/g, "")
+  html = html.replace(
+    /<link rel="stylesheet" href="\/assets\/[^"]+\.css[^"]*">/,
+    `<link rel="stylesheet" href="/assets/app.css.php?v=${stamp}">`,
+  )
+  fs.writeFileSync(indexPath, html)
+  console.log(`GoDaddy CSS: ${cssName} → embedded app.css.php`)
+}
+
+prepareGoDaddyCss()
+
 const requiredVideos = [
   "videos/herovideo.mp4",
   "videos/setu-story-web.mp4",

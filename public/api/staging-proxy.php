@@ -6,14 +6,12 @@
  * API CORS/CORP blocks direct browser calls from https://setuai.com.
  * .htaccess rewrites those prefixes here so the SPA keeps relative API bases.
  *
- * Default upstream: staging Auth (api.setuai.com/auth currently returns nginx 502).
+ * Default upstream: https://staging.setuai.com (all SETU microservices).
  * Override via api/config.php → staging_api_base, or GitHub secret STAGING_API_BASE.
  */
 declare(strict_types=1);
 
 const STAGING_DEFAULT = "https://staging.setuai.com";
-/** Report/UI art is on production storage; staging often 500s on these keys. */
-const ASSETS_API_DEFAULT = "https://api.setuai.com";
 
 /** Path prefixes mirrored from vite.config.js stagingProxy list */
 const ALLOWED_PREFIXES = [
@@ -39,8 +37,11 @@ const ALLOWED_PREFIXES = [
     "healthcard",
     "phr",
     "matrujyoti",
+    "matrimony",
     "temple",
     "language",
+    "doctor",
+    "vle",
     "assets/api",
 ];
 
@@ -70,17 +71,11 @@ if (!$allowed) {
 }
 
 $upstreamBase = STAGING_DEFAULT;
-if (str_starts_with($requestPath, "assets/api")) {
-    $upstreamBase = ASSETS_API_DEFAULT;
-}
 $configPath = __DIR__ . "/config.php";
 if (is_file($configPath)) {
     $config = require $configPath;
     if (is_array($config) && !empty($config["staging_api_base"])) {
-        // Do not override production assets host — staging lacks Reports/public keys.
-        if (!str_starts_with($requestPath, "assets/api")) {
-            $upstreamBase = rtrim((string) $config["staging_api_base"], "/");
-        }
+        $upstreamBase = rtrim((string) $config["staging_api_base"], "/");
     }
 }
 

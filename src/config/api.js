@@ -2,7 +2,7 @@
  * Central API bases — mirrors setuReactNative/src/config/apiConfig.js.
  * Local dev: leave VITE_API_URL empty; vite.config.js proxies /auth, /dashboard, …
  * GoDaddy prod: leave VITE_API_URL empty; public/.htaccess + api/staging-proxy.php
- *   forward the same relative prefixes to https://api.setuai.com (CORS-safe).
+ *   forward the same relative prefixes to https://staging.setuai.com (CORS-safe).
  * Direct absolute API URLs only work if API CORS/CORP allow the site origin.
  */
 
@@ -71,9 +71,9 @@ export const PREVENTIVE_BASE = serviceBase(
 /** Assets / storage — RN: API_URL_ASSETS */
 export const ASSETS_BASE = serviceBase("VITE_ASSETS_BASE", "/assets")
 
-/** Production storage host — API returns https://api.setuai.com/assets/api/v1/storage/object?... */
+/** Storage API host — proxied to staging in dev via VITE_ASSETS_API_HOST */
 export const ASSETS_API_ORIGIN = trim(
-  import.meta.env.VITE_ASSETS_API_HOST || "https://api.setuai.com",
+  import.meta.env.VITE_ASSETS_API_HOST || "https://staging.setuai.com",
 )
 
 /** CloudFront CDN — RN: API_URL_CLOUDFRONT */
@@ -91,9 +91,18 @@ export function authUrl(path) {
   return joinUrl(AUTH_BASE, path)
 }
 
-/** VLE portal — SETU-AUTH /api/vle (via gateway: /auth/api/vle) */
+/** VLE portal — SETU-VLE-service /api/v1 (via gateway: /vle/api/v1) */
+export const VLE_BASE = serviceBase("VITE_VLE_BASE", "/vle/api/v1")
+
 export function vleUrl(path) {
-  return joinUrl(AUTH_BASE, `/api/vle${path.startsWith("/") ? path : `/${path}`}`)
+  const p = path.startsWith("/") ? path : `/${path}`
+  return joinUrl(VLE_BASE, p)
+}
+
+/** VLE auth (login/register/refresh) — SETU-AUTH /api/vle (via gateway: /auth/api/vle) */
+export function vleAuthUrl(path) {
+  const p = path.startsWith("/") ? path : `/${path}`
+  return joinUrl(AUTH_BASE, `/api/vle${p}`)
 }
 
 /** Admin RBAC — SETU-AUTH /api/auth (via gateway: /auth/api/auth) */
@@ -167,7 +176,7 @@ export function buildStorageObjectUrl(fileKey, contentType = "image/png") {
   )}&disposition=inline&contentType=${encodeURIComponent(contentType)}`
 }
 
-/** Upstream URL exactly as Reports API returns (api.setuai.com, not setuai.com or staging). */
+/** Absolute storage object URL (rewritten for same-origin proxy in the browser). */
 export function storageObjectUrlAbsolute(fileKey, contentType = "image/png") {
   return `${ASSETS_API_ORIGIN}/assets/api/v1/storage/object?key=${encodeURIComponent(
     fileKey,
@@ -176,9 +185,8 @@ export function storageObjectUrlAbsolute(fileKey, contentType = "image/png") {
 
 /**
  * Rewrite storage URLs for browser `<img>` tags.
- * API returns https://api.setuai.com/assets/api/v1/storage/object?key=...
- * Browser loads same-origin /assets/api/v1/storage/object?key=... (Vite / .htaccess
- * proxy forwards to api.setuai.com — staging.setuai.com lacks Reports/public keys).
+ * API may return absolute storage URLs; browser loads same-origin /assets/api/... (Vite /
+ * .htaccess proxy forwards to staging.setuai.com).
  */
 export function resolveStorageImageUrl(url) {
   if (url == null || url === "") return ""
