@@ -8,6 +8,7 @@ import {
   openRazorpayCheckout,
   resolveRazorpayKeyId,
 } from "../../utils/razorpayCheckout"
+import { VLE_REGISTRATION_FEE_INR } from "../../constants/vle"
 
 const OTP_LENGTH = 6
 
@@ -197,7 +198,8 @@ export default function VleRegisterUserPage() {
         <div className="rounded-2xl border border-[#D2DEFF] bg-white p-6 shadow-sm">
           <h1 className="font-serif text-xl text-setu-charcoal">Register user</h1>
           <p className="mt-1 text-sm text-setu-muted">
-            Required: phone, name, age, gender. OTP verification + Razorpay payment.
+            Required: phone, name, age, gender. OTP verification + one-time ₹
+            {VLE_REGISTRATION_FEE_INR} registration payment (not annual).
           </p>
 
           {step === "details" && (
@@ -301,11 +303,14 @@ export default function VleRegisterUserPage() {
                 Registering +91 {form.phoneNumber} · {form.name.trim()}
               </p>
               <div className="rounded-xl border border-[#D2DEFF] bg-[#F7FAFF] px-4 py-3 text-sm">
-                <p className="font-medium text-setu-charcoal">Registration fee</p>
+                <p className="font-medium text-setu-charcoal">One-time registration fee</p>
                 <p className="mt-1 text-2xl font-semibold text-[#1C39BB]">
-                  ₹{paymentOrder.amountInr}
+                  ₹{paymentOrder.amountInr ?? VLE_REGISTRATION_FEE_INR}
                 </p>
-                <p className="mt-1 text-setu-muted">UPI, card, netbanking, and wallet accepted.</p>
+                <p className="mt-1 text-setu-muted">
+                  Paid once at registration — not an annual subscription. UPI, card, netbanking, and
+                  wallet accepted.
+                </p>
               </div>
               {error && <p className="text-sm text-red-600">{error}</p>}
               {success && !error && <p className="text-sm text-[#1C39BB]">{success}</p>}

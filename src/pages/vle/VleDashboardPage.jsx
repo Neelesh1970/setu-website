@@ -120,7 +120,6 @@ export default function VleDashboardPage() {
   const wallet = overview?.wallet || {}
   const rewards = overview?.rewards || {}
   const registration = overview?.registration || {}
-  const performance = overview?.performance || {}
   const myRank = overview?.leaderboard
   const leaderboardTop = overview?.leaderboardTop || []
   const analytics = overview?.analytics || {}
@@ -175,36 +174,6 @@ export default function VleDashboardPage() {
 
       {!loading && !error && overview && (
         <>
-          <div className="mb-6">
-            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-setu-muted">
-              Live snapshot
-            </h2>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <StatCard
-                label="Today"
-                value={registration.today ?? performance.todayRegistrations ?? 0}
-                sublabel="Registrations today"
-              />
-              <StatCard
-                label="This month"
-                value={registration.month ?? performance.monthlyRegistrations ?? 0}
-                sublabel="Registrations this month"
-              />
-              <StatCard
-                label="Total users"
-                value={registration.total ?? performance.totalRegistrations ?? 0}
-                sublabel={`${registration.appDownloads ?? 0} opened the app`}
-              />
-              <StatCard
-                label="Wallet"
-                value={wallet.balanceInr ?? 0}
-                prefix="₹"
-                accent
-                sublabel={`Today +₹${formatInr(wallet.todayEarningsInr ?? 0)} · Month +₹${formatInr(wallet.monthEarningsInr ?? 0)}`}
-              />
-            </div>
-          </div>
-
           <p className="mb-3 text-sm text-setu-muted">
             Period stats for{" "}
             <span className="font-medium text-[#1C39BB]">{analytics.periodLabel || period}</span>

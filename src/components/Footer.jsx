@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom"
 import { assets, footerQuickLinks } from "../data/content"
 
 export default function Footer() {
@@ -49,13 +50,19 @@ export default function Footer() {
           <p className="text-sm text-setu-stone/40">
             &copy; {new Date().getFullYear()} SETU. All rights reserved.
           </p>
-          <div className="flex gap-6 text-sm text-setu-stone/40">
-            <a href="#" className="transition-colors hover:text-setu-stone/70">
+          <div className="flex flex-wrap gap-6 text-sm text-setu-stone/40">
+            <Link to="/privacy" className="transition-colors hover:text-setu-stone/70">
               Privacy Policy
-            </a>
-            <a href="#" className="transition-colors hover:text-setu-stone/70">
+            </Link>
+            <Link to="/terms" className="transition-colors hover:text-setu-stone/70">
               Terms of Service
-            </a>
+            </Link>
+            <Link to="/refund" className="transition-colors hover:text-setu-stone/70">
+              Refund Policy
+            </Link>
+            <Link to="/contact" className="transition-colors hover:text-setu-stone/70">
+              Contact
+            </Link>
           </div>
         </div>
       </div>

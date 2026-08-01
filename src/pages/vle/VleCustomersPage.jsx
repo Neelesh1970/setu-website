@@ -2,26 +2,34 @@ import { useCallback, useEffect, useState } from "react"
 import { Loader2, Search } from "lucide-react"
 import { useAuth } from "../../context/AuthContext"
 import { vleAuthFetch } from "../../api/roleAuth"
+import { VLE_REGISTRATION_FEE_INR } from "../../constants/vle"
 
 const BADGE_STYLES = {
   "app pending": "bg-amber-100 text-amber-800",
   "app opened": "bg-green-100 text-green-800",
-  "annual paid": "bg-green-100 text-green-800",
-  trial: "bg-blue-100 text-blue-800",
-  expired: "bg-red-100 text-red-700",
-  active: "bg-green-100 text-green-800",
-  none: "bg-gray-100 text-gray-600",
-  "paid ₹200": "bg-emerald-100 text-emerald-800",
+  "one-time paid": "bg-emerald-100 text-emerald-800",
+  "payment pending": "bg-amber-100 text-amber-800",
+  "payment failed": "bg-red-100 text-red-700",
   paid: "bg-emerald-100 text-emerald-800",
   pending: "bg-amber-100 text-amber-800",
   failed: "bg-red-100 text-red-700",
 }
 
-function StatusBadge({ label }) {
+function badgeClass(label) {
   const key = String(label || "").toLowerCase()
+  if (BADGE_STYLES[key]) return BADGE_STYLES[key]
+  if (key.includes("one-time paid")) return BADGE_STYLES["one-time paid"]
+  if (key.includes("payment pending") || key === "pending") return BADGE_STYLES.pending
+  if (key.includes("failed")) return BADGE_STYLES.failed
+  if (key.includes("app opened")) return BADGE_STYLES["app opened"]
+  if (key.includes("app pending")) return BADGE_STYLES["app pending"]
+  return "bg-gray-100 text-gray-600"
+}
+
+function StatusBadge({ label }) {
   return (
     <span
-      className={`rounded-full px-2 py-0.5 text-xs font-medium ${BADGE_STYLES[key] || BADGE_STYLES.none}`}
+      className={`rounded-full px-2 py-0.5 text-xs font-medium ${badgeClass(label)}`}
       title={label}
     >
       {label}
@@ -79,7 +87,8 @@ export default function VleCustomersPage() {
         <p className="text-sm font-medium text-[#1C39BB]">Customer Search</p>
         <h1 className="font-serif text-2xl text-setu-charcoal">Your registered citizens</h1>
         <p className="mt-1 text-xs text-setu-muted">
-          ₹200 paid registration = 1 year annual membership · App pending = not logged into app yet
+          ₹{VLE_REGISTRATION_FEE_INR} one-time registration fee per citizen · App pending = not logged
+          into the app yet
         </p>
       </div>
 
@@ -111,7 +120,7 @@ export default function VleCustomersPage() {
             type="search"
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
-            placeholder="Search by name, phone, or UHID"
+            placeholder="Search by name or phone"
             className="w-full rounded-xl border border-[#D2DEFF] py-2.5 pl-10 pr-4 text-sm"
           />
         </div>
@@ -148,9 +157,7 @@ export default function VleCustomersPage() {
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <div>
                       <p className="font-medium text-setu-charcoal">{c.name || "—"}</p>
-                      <p className="text-sm text-setu-muted">
-                        {c.phone} · {c.uhid}
-                      </p>
+                      <p className="text-sm text-setu-muted">{c.phone}</p>
                       {c.city && (
                         <p className="text-xs text-setu-muted">
                           {c.city}
@@ -160,7 +167,6 @@ export default function VleCustomersPage() {
                     </div>
                     <div className="flex flex-col items-end gap-1.5">
                       <StatusBadge label={c.downloadLabel || c.downloadStatus} />
-                      <StatusBadge label={c.membershipLabel || c.membershipStatus} />
                       <StatusBadge label={c.paymentLabel || c.paymentStatus} />
                     </div>
                   </div>

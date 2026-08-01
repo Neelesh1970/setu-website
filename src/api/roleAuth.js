@@ -116,7 +116,14 @@ export async function refreshVleToken(refreshToken) {
     }),
   )
   if (!response.ok) {
-    throw new Error(data.message || data.error || "Session expired. Please sign in again.")
+    const msg = data.message || data.error || "Session expired. Please sign in again."
+    if (
+      typeof window !== "undefined" &&
+      /invalid or expired refresh token|invalid refresh token/i.test(msg)
+    ) {
+      window.dispatchEvent(new CustomEvent("setu:session-invalid"))
+    }
+    throw new Error(msg)
   }
   const d = data.data || {}
   const tokens = {
@@ -137,6 +144,12 @@ function authErrorMessage(msg, status) {
   if (/vle not found or inactive/i.test(text)) {
     return "VLE account not found or inactive on staging. Re-register or contact admin."
   }
+  if (/invalid or expired refresh token|invalid refresh token/i.test(text)) {
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("setu:session-invalid"))
+    }
+    return "Session expired (staging token on local AUTH, or vice versa). Sign in again at /login."
+  }
   if (/invalid or expired token/i.test(text)) {
     if (typeof window !== "undefined") {
       window.dispatchEvent(new CustomEvent("setu:session-invalid"))
@@ -144,6 +157,16 @@ function authErrorMessage(msg, status) {
     return "Session expired or token rejected by staging. Sign out, run docker-compose up -d --force-recreate vle-service on EC2, then sign in again."
   }
   if (status === 403) {
+    if (/invalid or expired token/i.test(text) && typeof window !== "undefined") {
+      const vleHost = import.meta.env.VITE_PROXY_VLE_HOST || ""
+      const authHost = import.meta.env.VITE_PROXY_AUTH_HOST || ""
+      const mixedLocal =
+        /localhost|127\.0\.0\.1|:7035\b/.test(vleHost) &&
+        !/localhost|127\.0\.0\.1|:7005\b/.test(authHost)
+      if (mixedLocal) {
+        return "VLE token mismatch: login uses staging but dashboard uses local VLE. Set both VITE_PROXY_AUTH_HOST and VITE_PROXY_VLE_HOST to localhost, or both to staging.setuai.com."
+      }
+    }
     return (
       text ||
       "VLE dashboard rejected your token. On EC2, set the same VLE_JWT_SECRET and DB_* in SETU-VLE-service/.env, then run: docker-compose up -d --force-recreate vle-service"
@@ -152,12 +175,12 @@ function authErrorMessage(msg, status) {
   return text || "Request failed."
 }
 
-/** Wallet, user registration, leaderboard → SETU-AUTH. Analytics/overview → SETU-VLE-service. */
+/** Wallet + user registration → SETU-AUTH (/dashboard/wallet/…). Analytics → SETU-VLE-service. */
 function resolveVleFetchUrl(path) {
   const normalized = path.startsWith("/") ? path : `/${path}`
   const pathname = normalized.split("?")[0]
   const usesAuth =
-    pathname.startsWith("/dashboard/wallet") ||
+    pathname.startsWith("/dashboard/wallet/") ||
     pathname.startsWith("/dashboard/users") ||
     pathname === "/dashboard/leaderboard" ||
     pathname.startsWith("/dashboard/leaderboard/") ||
@@ -195,14 +218,21 @@ export async function vleAuthFetch(
       (response.status === 401 || response.status === 403) &&
       /invalid or expired token/i.test(msg)
     ) {
-      const tokens = await refreshVleToken(refreshToken)
-      return vleAuthFetch(path, {
-        token: tokens.token,
-        refreshToken: tokens.refreshToken,
-        httpMethod: resolvedMethod,
-        body,
-        _retried: true,
-      })
+      try {
+        const tokens = await refreshVleToken(refreshToken)
+        return vleAuthFetch(path, {
+          token: tokens.token,
+          refreshToken: tokens.refreshToken,
+          httpMethod: resolvedMethod,
+          body,
+          _retried: true,
+        })
+      } catch (refreshErr) {
+        throw new Error(
+          refreshErr.message ||
+            "Session expired. Sign out and log in again after switching local/staging backend.",
+        )
+      }
     }
     throw new Error(authErrorMessage(msg, response.status))
   }

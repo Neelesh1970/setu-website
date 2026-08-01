@@ -1,5 +1,9 @@
 import { Outlet, Routes, Route } from "react-router-dom"
 import MarketingPage from "./pages/MarketingPage"
+import PrivacyPolicyPage from "./pages/legal/PrivacyPolicyPage"
+import TermsPage from "./pages/legal/TermsPage"
+import RefundPolicyPage from "./pages/legal/RefundPolicyPage"
+import ContactPage from "./pages/legal/ContactPage"
 import LoginPage from "./pages/LoginPage"
 import RegisterProfilePage from "./pages/RegisterProfilePage"
 import RegisterCompletePage from "./pages/RegisterCompletePage"
@@ -161,6 +165,10 @@ export default function App() {
   return (
     <Routes>
       <Route path="/" element={<MarketingPage />} />
+      <Route path="/privacy" element={<PrivacyPolicyPage />} />
+      <Route path="/terms" element={<TermsPage />} />
+      <Route path="/refund" element={<RefundPolicyPage />} />
+      <Route path="/contact" element={<ContactPage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<LoginPage />} />
       <Route path="/register/profile" element={<RegisterProfilePage />} />

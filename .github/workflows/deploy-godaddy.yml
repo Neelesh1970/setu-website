@@ -137,11 +137,20 @@ jobs:
           STAGING_API_BASE: ${{ secrets.STAGING_API_BASE || 'https://staging.setuai.com' }}
         run: node scripts/generate-config-php.mjs
 
-      - name: Build production bundle
-        run: npm run build
+      - name: Build production bundle (GoDaddy)
+        run: npm run build:godaddy
         env:
           VITE_API_URL: ""
           VITE_CONTACT_API_URL: ""
+          VITE_REGISTRATION_FEE_INR: "199"
+          SMTP_PASS: ${{ secrets.SMTP_PASS }}
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_SECURE: ${{ secrets.SMTP_SECURE }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_FROM: ${{ secrets.SMTP_FROM }}
+          CONTACT_TO_EMAIL: ${{ secrets.CONTACT_TO_EMAIL }}
+          STAGING_API_BASE: ${{ secrets.STAGING_API_BASE || 'https://staging.setuai.com' }}
 
       - name: Verify dist before deploy
         run: |
@@ -151,6 +160,14 @@ jobs:
           fi
           if [ ! -f dist/api/staging-proxy.php ]; then
             echo "::error::dist/api/staging-proxy.php missing after build"
+            exit 1
+          fi
+          if [ ! -f dist/assets/app.css.php ]; then
+            echo "::error::dist/assets/app.css.php missing — build:godaddy embeds CSS for GoDaddy FTPS"
+            exit 1
+          fi
+          if ! grep -q 'app.css.php' dist/index.html; then
+            echo "::error::dist/index.html must reference app.css.php (GoDaddy CSS workaround)"
             exit 1
           fi
           if [ ! -f dist/.htaccess ]; then

@@ -47,14 +47,19 @@ export default function VleWalletPage() {
     setLoading(true)
     setError("")
     try {
-      const [bal, tx, walletSummary] = await Promise.all([
+      const [balResult, txResult, summaryResult] = await Promise.allSettled([
         vleAuthFetch("/dashboard/wallet/balance", { token: session.token, refreshToken: session.refreshToken }),
         vleAuthFetch("/dashboard/wallet/transactions?limit=20", { token: session.token, refreshToken: session.refreshToken }),
         vleAuthFetch("/dashboard/wallet-summary", { token: session.token, refreshToken: session.refreshToken }),
       ])
-      setBalance(bal)
-      setSummary(walletSummary)
-      setTransactions(tx?.transactions || [])
+      if (balResult.status === "fulfilled") {
+        setBalance(balResult.value)
+        setError("")
+      } else {
+        setError(balResult.reason?.message || "Could not load wallet balance.")
+      }
+      if (txResult.status === "fulfilled") setTransactions(txResult.value?.transactions || [])
+      if (summaryResult.status === "fulfilled") setSummary(summaryResult.value)
     } catch (err) {
       setError(err.message || "Could not load wallet.")
     } finally {

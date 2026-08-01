@@ -5,9 +5,19 @@ import { isJwtExpired, refreshVleToken } from "../api/roleAuth"
 const STORAGE_KEY = "setu_auth_session"
 const API_HOST_KEY = "setu_api_host"
 
-/** Invalidate saved sessions when Vite proxy target changes (local → staging, etc.). */
-function currentApiHost() {
-  return (import.meta.env.VITE_PROXY_API_HOST || "https://staging.setuai.com").replace(/\/+$/, "")
+/** Invalidate saved sessions when Vite proxy targets change (staging ↔ local AUTH/VLE). */
+function currentAuthFingerprint() {
+  const auth = (
+    import.meta.env.VITE_PROXY_AUTH_HOST ||
+    import.meta.env.VITE_PROXY_API_HOST ||
+    "https://staging.setuai.com"
+  ).replace(/\/+$/, "")
+  const vle = (
+    import.meta.env.VITE_PROXY_VLE_HOST ||
+    import.meta.env.VITE_PROXY_API_HOST ||
+    "https://staging.setuai.com"
+  ).replace(/\/+$/, "")
+  return `${auth}|${vle}`
 }
 
 function clearStoredSession() {
@@ -19,7 +29,7 @@ const AuthContext = createContext(null)
 
 function readStoredSession() {
   try {
-    const expected = currentApiHost()
+    const expected = currentAuthFingerprint()
     const host = localStorage.getItem(API_HOST_KEY)
     const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) return null
@@ -38,7 +48,7 @@ function writeStoredSession(session) {
     clearStoredSession()
     return
   }
-  localStorage.setItem(API_HOST_KEY, currentApiHost())
+  localStorage.setItem(API_HOST_KEY, currentAuthFingerprint())
   localStorage.setItem(STORAGE_KEY, JSON.stringify(session))
 }
 
