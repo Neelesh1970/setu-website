@@ -45,7 +45,7 @@ export function BookTestPackages() {
   const navigate = useNavigate()
   const location = useLocation()
   const { session } = useAuth()
-  const { refreshCart } = useBookTest()
+  const { refreshCart,toggleSaved, isSaved  } = useBookTest()
   const category = location.state?.category || { name: "WELLNESS", code: "WELLNESS" }
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(true)
@@ -90,6 +90,27 @@ export function BookTestPackages() {
       setAddingCode("")
     }
   }
+  const handleToggleSave = (item) => {
+    const productCode = item?._code || item?.product_code || item?.code
+    
+    if (!productCode) {
+      console.error('No product code found')
+      return
+    }
+    
+    toggleSaved(
+      productCode,
+      !isSaved(productCode),
+      {
+        product_code: productCode,
+        code: productCode,
+        _id: productCode,
+        _name: item?._name || item?.name || "Saved Test",
+        _price: item?._price || item?.price || 0,
+        _tests: item?._tests || item?.tests || []
+      }
+    )
+  }
 
   return (
     <BookTestShell title={category.name || category.code || "Packages"}>
@@ -114,6 +135,8 @@ export function BookTestPackages() {
                 })
               }
               onAdd={() => handleAdd(item)}
+              onToggleSave={handleToggleSave}
+              isSaved={isSaved(item._code)}
             />
           ))}
         </div>
@@ -127,7 +150,7 @@ export function BookTestPackageDetail() {
   const navigate = useNavigate()
   const location = useLocation()
   const { session } = useAuth()
-  const { refreshCart } = useBookTest()
+  const { refreshCart, toggleSaved, isSaved } = useBookTest()
   const seeded = location.state?.package
   const [pkg, setPkg] = useState(() =>
     seeded ? enrich(seeded, { code: decodeURIComponent(code || "") }) : null,
@@ -193,17 +216,28 @@ export function BookTestPackageDetail() {
     }
   }
 
-  const handleSave = async () => {
+  const handleSave = () => {
     if (!pkg?._code) return
-    setBusy("save")
-    try {
-      await saveForLater(session, pkg._code)
-      alert("Saved for later")
-    } catch (err) {
-      alert(err.message || "Could not save")
-    } finally {
-      setBusy("")
-    }
+    
+    const productCode = pkg._code
+    const isPkgSaved = isSaved(productCode)
+    
+    // Immediately update the count
+    toggleSaved(
+      productCode,
+      !isPkgSaved,
+      {
+        product_code: productCode,
+        code: productCode,
+        _id: productCode,
+        _name: pkg._name || "Saved Test",
+        _price: pkg._price || 0,
+        _tests: pkg._tests || []
+      }
+    )
+    
+    // Show feedback
+    alert(isPkgSaved ? "Removed from saved" : "Saved for later")
   }
 
   return (

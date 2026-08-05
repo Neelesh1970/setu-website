@@ -19,7 +19,7 @@ export function FitnessShell({
   onBack = null,
   children,
   className = "",
-  maxWidth = "max-w-3xl",
+maxWidth = "max-w-full sm:max-w-3xl md:max-w-5xl lg:max-w-7xl mx-auto",
   showBack = true,
   showTabs = true,
   rightAction = null,

@@ -454,3 +454,41 @@ export async function removeSavedForLater(session, productCode) {
   assertOk(response, data, "Could not remove saved package")
   return unwrap(data)
 }
+// Add to /api/booktest.js
+
+export async function fetchSavedTests(session) {
+  try {
+    const items = await listSavedForLater(session)
+    return items || []
+  } catch (error) {
+    console.error('Error fetching saved tests:', error)
+    return []
+  }
+}
+
+export async function toggleSavedTest(session, productCode, save = true) {
+  try {
+    if (save) {
+      return await saveForLater(session, productCode)
+    } else {
+      return await removeSavedForLater(session, productCode)
+    }
+  } catch (error) {
+    console.error('Error toggling saved test:', error)
+    throw error
+  }
+}
+
+export async function checkTestSaved(session, productCode) {
+  try {
+    const savedItems = await listSavedForLater(session)
+    return savedItems.some(item => 
+      item.product_code === productCode || 
+      item.code === productCode ||
+      item._id === productCode
+    )
+  } catch (error) {
+    console.error('Error checking saved status:', error)
+    return false
+  }
+}

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react"
 import { Link, useNavigate } from "react-router-dom"
-import { Droplets, Loader2, Plus, Search, Trash2 } from "lucide-react"
+
+import { Droplets, Loader2, Plus, Search, Trash2, RefreshCw, CheckCircle, AlertCircle  } from "lucide-react"
 import {
   createMeal,
   deleteLastHydrationLog,
@@ -18,7 +19,60 @@ import {
 } from "../../api/fitness"
 import { FitnessShell } from "./FitnessShell"
 import { FitnessGateLoader, useFitnessGate } from "./useFitnessGate"
+// WaterProgress Component - add this before the FitnessWater component
+function WaterProgress({ intake, goal, size = 200, strokeWidth = 20 }) {
+  const radius = (size - strokeWidth) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const arcLength = circumference; // Full circle
+  const progress = Math.min(intake / Math.max(goal, 1), 1);
+  const progressLength = arcLength * progress;
+  const rotation = 90;
+  const center = size / 2;
 
+  return (
+    <div className="relative" style={{ width: size, height: size }}>
+      <svg width={size} height={size}>
+        {/* Gray background arc */}
+        <circle
+          cx={center}
+          cy={center}
+          r={radius}
+          stroke="#DDD"
+          strokeWidth={strokeWidth}
+          strokeDasharray={`${arcLength} ${circumference}`}
+          strokeDashoffset={0}
+          strokeLinecap="round"
+          fill="none"
+          transform={`rotate(${180 + 90} ${center} ${center})`}
+        />
+
+        {/* Green progress arc */}
+        <circle
+          cx={center}
+          cy={center}
+          r={radius}
+          stroke="#10b981"
+          strokeWidth={strokeWidth}
+          strokeDasharray={`${progressLength} ${circumference}`}
+          strokeLinecap="round"
+          fill="none"
+          transform={`rotate(${rotation} ${center} ${center})`}
+          className="transition-all duration-700 ease-in-out"
+        />
+      </svg>
+      
+      {/* Center content */}
+      <div className="absolute inset-0 flex flex-col items-center justify-center">
+        <p className="text-3xl font-bold text-[#111827]">
+          {Math.round(progress * 100)}%
+        </p>
+        <p className="text-sm text-[#6B7280]">
+          {(intake / 1000).toFixed(1)}L / {(goal / 1000).toFixed(1)}L
+        </p>
+      </div>
+    </div>
+  );
+}
 export default function FitnessFood() {
   const { ready, auth } = useFitnessGate()
   const [data, setData] = useState(null)
@@ -158,31 +212,35 @@ function Quick({ to, label }) {
 
 export function FitnessWater() {
   const { ready, auth } = useFitnessGate()
-  const [goal, setGoal] = useState(3000)
+  const [goal, setGoal] = useState(2000)
   const [consumed, setConsumed] = useState(0)
-  const [custom, setCustom] = useState("")
+  const [entries, setEntries] = useState([])
+  const [customAmount, setCustomAmount] = useState("")
   const [loading, setLoading] = useState(true)
+  const [loadingGoal, setLoadingGoal] = useState(false)
   const [error, setError] = useState("")
+  const [success, setSuccess] = useState("")
+  const [isAdding, setIsAdding] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
 
   const load = async () => {
     setLoading(true)
     setError("")
+    setSuccess("")
     try {
       const [g, today] = await Promise.all([
         fetchHydrationGoal(auth),
         fetchHydrationToday(auth),
       ])
-      const goalMl =
-        g?.daily_ml || g?.goal_ml || g?.data?.daily_ml || goal || 3000
-      setGoal(Number(goalMl) || 3000)
-      const c =
-        today?.consumed?.consumed_ml ||
-        today?.consumed?.total_ml ||
-        today?.consumed?.amount_ml ||
-        today?.logs?.total_ml ||
-        today?.logs?.consumed_ml ||
-        0
-      setConsumed(Number(c) || 0)
+      const goalMl = g?.daily_ml || g?.goal_ml || g?.data?.daily_ml || 2000
+      setGoal(Number(goalMl) || 2000)
+      
+      // Parse entries and consumed
+      const logs = today?.logs || today?.entries || []
+      setEntries(logs)
+      const totalConsumed = logs.reduce((sum, entry) => sum + Number(entry.amount || entry.amount_ml || 0), 0)
+      setConsumed(totalConsumed)
     } catch (err) {
       setError(err.message || "Failed to load water tracker")
     } finally {
@@ -197,33 +255,80 @@ export function FitnessWater() {
   }, [ready, auth?.token])
 
   const add = async (ml) => {
+    if (isAdding) return
+    setIsAdding(true)
+    setError("")
+    setSuccess("")
+    
     try {
+      if (consumed >= goal) {
+        setError("Today's water intake done")
+        setIsAdding(false)
+        return
+      }
       await postHydrationLog(auth, ml)
+      setSuccess(`Added ${ml}ml ✓`)
       await load()
     } catch (err) {
       setError(err.message || "Failed to log water")
+    } finally {
+      setIsAdding(false)
     }
   }
 
   const undo = async () => {
+    if (isDeleting || entries.length === 0) return
+    setIsDeleting(true)
+    setError("")
+    setSuccess("")
+    
     try {
       await deleteLastHydrationLog(auth)
+      setSuccess("Last entry removed ✓")
       await load()
     } catch (err) {
       setError(err.message || "Failed to undo")
+    } finally {
+      setIsDeleting(false)
     }
   }
 
   const saveGoal = async () => {
+    if (loadingGoal) return
+    setLoadingGoal(true)
+    setError("")
+    setSuccess("")
+    
     try {
       await putHydrationGoal(auth, Number(goal))
+      setSuccess("Goal updated ✓")
       await load()
     } catch (err) {
       setError(err.message || "Failed to update goal")
+    } finally {
+      setLoadingGoal(false)
     }
   }
 
+  const handleCustomAdd = () => {
+    const amount = parseInt(customAmount)
+    if (!amount || amount <= 0) {
+      setError("Please enter a valid amount")
+      return
+    }
+    add(amount)
+    setCustomAmount("")
+  }
+
+  const onRefresh = async () => {
+    setRefreshing(true)
+    await load()
+    setRefreshing(false)
+  }
+
   const pct = Math.min(100, Math.round((consumed / Math.max(goal, 1)) * 100))
+  const remaining = Math.max(goal - consumed, 0)
+  const suggestedSip = remaining <= 0 ? 0 : Math.min(remaining, 250)
 
   if (!ready) {
     return (
@@ -242,82 +347,172 @@ export function FitnessWater() {
       ) : (
         <div className="space-y-4">
           {error && (
-            <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
+            <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 flex items-center gap-2">
+              <AlertCircle size={18} />
               {error}
-            </p>
+            </div>
           )}
-          <div className="rounded-2xl border border-[#E5E7EB] bg-white p-5 text-center shadow-sm">
-            <Droplets className="mx-auto text-[#10B981]" size={28} />
-            <p className="mt-3 text-3xl font-bold text-[#111827]">
-              {consumed} ml
-            </p>
-            <p className="text-sm text-[#6B7280]">of {goal} ml goal · {pct}%</p>
-            <div className="mt-4 h-3 overflow-hidden rounded-full bg-[#ECFDF5]">
-              <div
-                className="h-full rounded-full bg-[#10B981]"
-                style={{ width: `${pct}%` }}
-              />
+          {success && (
+            <div className="rounded-lg bg-green-50 px-3 py-2 text-sm text-green-700 flex items-center gap-2">
+              <CheckCircle size={18} />
+              {success}
+            </div>
+          )}
+
+          {/* Circular Progress - Matches React Native exactly */}
+          <div className="flex flex-col items-center rounded-2xl border border-[#E5E7EB] bg-white p-5 shadow-sm">
+            <WaterProgress
+              intake={consumed}
+              goal={goal}
+              size={Math.min(window.innerWidth * 0.7, 300)}
+              strokeWidth={30}
+            />
+            
+            <div className="mt-4 text-center">
+              <p className="text-3xl font-bold text-[#111827]">
+                {consumed} ml
+              </p>
+              <p className="text-sm text-[#6B7280]">
+                of {goal} ml goal · {pct}%
+              </p>
+              {loading ? (
+                <p className="text-sm text-[#6B7280]">Syncing…</p>
+              ) : remaining <= 0 ? (
+                <p className="text-sm font-semibold text-[#10B981]">Goal reached 🎉</p>
+              ) : (
+                <p className="text-sm text-[#6B7280]">
+                  Drink ~{Math.round(suggestedSip)} ml now
+                </p>
+              )}
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-2">
-            {[250, 500, 750].map((ml) => (
-              <button
-                key={ml}
-                type="button"
-                onClick={() => add(ml)}
-                className="rounded-xl bg-[#10B981] py-3 text-sm font-semibold text-white"
-              >
-                +{ml} ml
-              </button>
-            ))}
+          {/* Daily Goal Section */}
+          <div className="rounded-xl bg-[#F8F9FA] p-4">
+            <div className="flex justify-between items-center mb-2">
+              <p className="text-sm font-semibold text-[#333]">Daily Goal</p>
+              {loadingGoal && <Loader2 className="animate-spin" size={16} color="#007AFF" />}
+            </div>
+            <div className="text-center">
+              <p className="text-2xl font-bold text-[#10b981]">
+                {loadingGoal ? "Calculating..." : `${goal} ml`}
+              </p>
+              {!loadingGoal && (
+                <p className="text-xs text-[#666]">Personalized based on your profile</p>
+              )}
+            </div>
           </div>
 
-          <div className="flex gap-2">
-            <input
-              inputMode="numeric"
-              value={custom}
-              onChange={(e) => setCustom(e.target.value.replace(/\D/g, "").slice(0, 5))}
-              placeholder="Custom ml"
-              className="flex-1 rounded-xl border border-[#E5E7EB] px-3 py-2 text-sm outline-none focus:border-[#10B981]"
-            />
-            <button
-              type="button"
-              onClick={() => custom && add(Number(custom))}
-              className="rounded-xl bg-[#059669] px-4 py-2 text-sm font-semibold text-white"
-            >
-              Add
-            </button>
+          {/* Quick Add Header */}
+          <div className="flex justify-between items-center">
+            <p className="text-sm font-semibold">Quick Add</p>
             <button
               type="button"
               onClick={undo}
-              className="rounded-xl border border-[#E5E7EB] px-3 py-2 text-sm"
+              disabled={isDeleting || entries.length === 0}
+              className="text-sm font-medium text-[#000] disabled:opacity-40"
             >
-              Undo
+              {isDeleting ? <Loader2 className="animate-spin" size={16} /> : "Remove Last"}
             </button>
           </div>
 
+          {/* Quick Add Buttons */}
+          {remaining <= 0 ? (
+            <div className="rounded-xl bg-[#10b981] p-4 text-center">
+              <p className="text-sm font-bold text-white">Today's water intake done</p>
+            </div>
+          ) : (
+            <div className="flex gap-2 overflow-x-auto pb-2">
+              {[250, 500, 750].map((item) => (
+                <button
+                  key={item}
+                  type="button"
+                  onClick={() => add(item)}
+                  disabled={isAdding}
+                  className="flex-shrink-0 rounded-lg bg-[#d1fae5] px-4 py-2 text-sm font-semibold disabled:opacity-40"
+                >
+                  {isAdding ? (
+                    <Loader2 className="animate-spin" size={16} />
+                  ) : (
+                    `Add ${item} ml`
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Custom Amount Input - NEW */}
+          <div className="flex gap-2">
+            <input
+              type="number"
+              value={customAmount}
+              onChange={(e) => setCustomAmount(e.target.value.replace(/\D/g, ""))}
+              placeholder="Custom ml"
+              className="flex-1 rounded-xl border border-[#E5E7EB] px-3 py-2 text-sm outline-none focus:border-[#10B981]"
+              min="1"
+            />
+            <button
+              type="button"
+              onClick={handleCustomAdd}
+              disabled={isAdding || !customAmount}
+              className="rounded-xl bg-[#059669] px-4 py-2 text-sm font-semibold text-white disabled:opacity-40"
+            >
+              {isAdding ? <Loader2 className="animate-spin" size={16} /> : "Add"}
+            </button>
+          </div>
+
+          {/* Goal Setting - NEW */}
           <div className="flex gap-2 rounded-xl border border-[#E5E7EB] bg-white p-3">
             <input
-              inputMode="numeric"
+              type="number"
               value={goal}
-              onChange={(e) => setGoal(e.target.value.replace(/\D/g, "").slice(0, 5))}
-              className="flex-1 outline-none"
+              onChange={(e) => setGoal(Number(e.target.value.replace(/\D/g, "")) || 0)}
+              className="flex-1 outline-none text-sm"
+              min="500"
+              max="10000"
             />
             <button
               type="button"
               onClick={saveGoal}
-              className="text-sm font-semibold text-[#10B981]"
+              disabled={loadingGoal}
+              className="text-sm font-semibold text-[#10B981] disabled:opacity-40"
             >
-              Set goal
+              {loadingGoal ? <Loader2 className="animate-spin" size={16} /> : "Set goal"}
             </button>
           </div>
+
+          {/* Added Section */}
+          <p className="text-sm font-semibold py-2">Added</p>
+
+          {loading ? (
+            <Loader2 className="animate-spin" size={20} />
+          ) : entries.length === 0 ? (
+            <p className="text-sm text-[#6B7280] py-4">No water added yet</p>
+          ) : (
+            <div className="flex gap-2 overflow-x-auto pb-2">
+              {entries.slice(0, 20).map((entry, index) => (
+                <div
+                  key={entry.id || index}
+                  className="flex-shrink-0 rounded-lg bg-[#d1fae5] px-4 py-3 text-center min-w-[100px]"
+                >
+                  <p className="text-sm font-semibold">Added {entry.amount || entry.amount_ml || 0} ml</p>
+                  <p className="text-xs text-[#555]">
+                    {entry.time ? new Date(entry.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Footer */}
+          <p className="text-center text-sm font-bold text-[#333] py-4">
+            Water is life — drink enough 💧
+          </p>
         </div>
       )}
     </FitnessShell>
   )
 }
-
 export function FitnessAddFood() {
   const navigate = useNavigate()
   const { ready, auth } = useFitnessGate()
