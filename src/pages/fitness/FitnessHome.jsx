@@ -67,6 +67,14 @@ export default function FitnessHome() {
   }, [selectedDay])
 
   const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()
+  const todayDay = now.getDate()
+
+  // Ensure selected day is not in the future
+  useEffect(() => {
+    if (selectedDay > todayDay) {
+      setSelectedDay(todayDay)
+    }
+  }, [selectedDay, todayDay])
 
   const load = async () => {
     if (!auth?.token) return
@@ -186,23 +194,29 @@ export default function FitnessHome() {
       </div>
 
       <div className="touch-scroll -mx-1 mb-5 flex gap-2 overflow-x-auto px-1 pb-1">
-        {Array.from({ length: daysInMonth }, (_, i) => i + 1).map((d) => (
-          <button
-            key={d}
-            type="button"
-            onClick={() => setSelectedDay(d)}
-            className={`flex h-14 w-12 shrink-0 snap-start flex-col items-center justify-center rounded-xl text-sm ${
-              selectedDay === d
-                ? "bg-[#10B981] font-semibold text-white"
-                : "bg-white text-[#374151] ring-1 ring-[#E5E7EB]"
-            }`}
-          >
-            <span className="text-[10px] opacity-80">
-              {MONTHS[now.getMonth()].slice(0, 3)}
-            </span>
-            {d}
-          </button>
-        ))}
+        {Array.from({ length: daysInMonth }, (_, i) => i + 1).map((d) => {
+          const isFuture = d > todayDay
+          return (
+            <button
+              key={d}
+              type="button"
+              onClick={() => !isFuture && setSelectedDay(d)}
+              disabled={isFuture}
+              className={`flex h-14 w-12 shrink-0 snap-start flex-col items-center justify-center rounded-xl text-sm ${
+                selectedDay === d
+                  ? "bg-[#10B981] font-semibold text-white"
+                  : isFuture
+                  ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                  : "bg-white text-[#374151] ring-1 ring-[#E5E7EB]"
+              }`}
+            >
+              <span className="text-[10px] opacity-80">
+                {MONTHS[now.getMonth()].slice(0, 3)}
+              </span>
+              {d}
+            </button>
+          )
+        })}
       </div>
 
       {loading ? (

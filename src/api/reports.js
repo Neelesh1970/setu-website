@@ -2,17 +2,63 @@
  * Reports / Health Line APIs — mirrors setuReactNative Reports screens.
  */
 import {
-  buildStorageObjectUrl,
   medUrl,
   preventiveUrl,
   reportsUrl,
-  resolveStorageImageUrl,
+  CLOUDFRONT_BASE,
 } from "../config/api"
 import { authHeaders } from "./http"
 
-/** Storage-backed report art (same keys as Reports-Service / api.setuai.com). */
-export const reportAsset = (fileName) =>
-  buildStorageObjectUrl(`Reports/public/${fileName}`)
+/** 
+ * Direct CloudFront URL - bypasses storage API completely to avoid CORS issues
+ */
+export const reportAsset = (fileName) => {
+  if (!fileName) return ''
+  const cleanPath = fileName.replace(/^\/+/, '')
+  // Remove any query parameters if present
+  const pathWithoutQuery = cleanPath.split('?')[0]
+  return `${CLOUDFRONT_BASE}/Reports/public/${pathWithoutQuery}`
+}
+
+/** 
+ * Extract filename from storage URL and convert to CloudFront
+ */
+export function cloudfrontFromStorageUrl(url) {
+  if (!url) return null
+  
+  // If it's already a CloudFront URL, return it
+  if (url.includes('cloudfront.net')) return url
+  
+  // If it's a storage URL, extract the key
+  if (url.includes('/storage/object') || url.includes('assets/api/')) {
+    try {
+      const urlObj = new URL(url)
+      const key = urlObj.searchParams.get('key')
+      if (key) {
+        // Decode and extract just the filename
+        const decoded = decodeURIComponent(key)
+        const filename = decoded.replace(/^Reports\/public\//, '')
+        return reportAsset(filename)
+      }
+    } catch {
+      // If URL parsing fails, try regex
+      const match = url.match(/key=([^&]+)/)
+      if (match) {
+        const decoded = decodeURIComponent(match[1])
+        const filename = decoded.replace(/^Reports\/public\//, '')
+        return reportAsset(filename)
+      }
+    }
+  }
+  
+  // If it's a simple filename, use reportAsset
+  if (!url.startsWith('http')) {
+    const filename = url.replace(/^Reports\/public\//, '')
+    return reportAsset(filename)
+  }
+  
+  return url
+}
 
 /** RN tile `route` → website path slug under /app/reports/ */
 export const TILE_ROUTE_TO_SLUG = {
@@ -44,33 +90,41 @@ const TILE_IMAGE_BY_ROUTE = {
 }
 
 export function tileImageUrl(route, imageUrl) {
-  const resolved = resolveStorageImageUrl(imageUrl)
-  if (resolved) return resolved
+  // If imageUrl exists, convert it to CloudFront
+  if (imageUrl) {
+    const cloudfrontUrl = cloudfrontFromStorageUrl(imageUrl)
+    if (cloudfrontUrl) return cloudfrontUrl
+  }
+  
+  // Fallback to mapped icon
   const file = TILE_IMAGE_BY_ROUTE[route]
-  return file ? reportAsset(file) : ""
+  return file ? reportAsset(file) : reportAsset('Layer_1.png')
 }
 
 function normalizeBanner(data) {
   if (!data) return null
+  const iconUrl = cloudfrontFromStorageUrl(data.icon_url || data.iconUrl)
   return {
     ...data,
-    icon_url: resolveStorageImageUrl(data.icon_url || data.iconUrl),
+    icon_url: iconUrl || reportAsset('header_image.png'),
   }
 }
 
 function normalizeTile(tile) {
   if (!tile) return tile
+  const imageUrl = cloudfrontFromStorageUrl(tile.imageUrl || tile.image_url)
   return {
     ...tile,
-    imageUrl: tileImageUrl(tile.route, tile.imageUrl || tile.image_url),
+    imageUrl: imageUrl || tileImageUrl(tile.route, imageUrl),
   }
 }
 
 function normalizeSlide(slide) {
   if (!slide) return slide
+  const imageUrl = cloudfrontFromStorageUrl(slide.imageUrl || slide.image_url)
   return {
     ...slide,
-    imageUrl: resolveStorageImageUrl(slide.imageUrl || slide.image_url),
+    imageUrl: imageUrl,
   }
 }
 
@@ -144,9 +198,16 @@ function extractList(payload) {
   return []
 }
 
-async function getJson(url, { token, refreshToken, timeout = 12000 } = {}) {
+/**
+ * Fetches JSON from a URL with timeout and abort handling
+ * Now properly handles abort errors without throwing
+ */
+async function getJson(url, { token, refreshToken, timeout = 30000 } = {}) {
   const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), timeout)
+  const timer = setTimeout(() => {
+    controller.abort()
+  }, timeout)
+  
   try {
     const response = await fetch(url, {
       signal: controller.signal,
@@ -154,6 +215,17 @@ async function getJson(url, { token, refreshToken, timeout = 12000 } = {}) {
     })
     const data = await response.json().catch(() => ({}))
     return { response, data }
+  } catch (error) {
+    // Handle abort errors gracefully
+    if (error.name === 'AbortError') {
+      console.warn(`Request timeout for ${url}:`, error.message)
+      // Return a failed response object instead of throwing
+      return { 
+        response: { ok: false, status: 408, statusText: 'Request Timeout' }, 
+        data: { message: 'Request timed out' } 
+      }
+    }
+    throw error
   } finally {
     clearTimeout(timer)
   }
@@ -219,7 +291,7 @@ export async function getReportUiConfig({ token, refreshToken } = {}) {
   if (!response.ok) throw new Error(data?.message || "Failed to load report categories")
   return extractList(data).map((row) => ({
     ...row,
-    icon_url: resolveStorageImageUrl(row.icon_url || row.iconUrl),
+    icon_url: cloudfrontFromStorageUrl(row.icon_url || row.iconUrl) || row.icon_url,
   }))
 }
 
@@ -342,7 +414,7 @@ export async function getPatientByEhsUserId(
   const id = numericUserId(userId) ?? userId
   const { response, data } = await getJson(
     medUrl(`/setu_beta_ws/mst_patient/patientbyehsuserid/${id}`),
-    { token, refreshToken },
+    { token, refreshToken, timeout: 15000 },
   )
   if (!response.ok) {
     throw new Error(data?.message || "Patient record not found")
@@ -358,7 +430,7 @@ export async function getClosedAppointments(
     medUrl(
       `/telemedappointment/ehs/vccClosedAppoinmentByUserId?userId=${encodeURIComponent(patientUserId)}&page=${page}&size=${size}`,
     ),
-    { token, refreshToken },
+    { token, refreshToken, timeout: 15000 },
   )
   if (!response.ok) {
     throw new Error(data?.message || "Failed to load case papers")
@@ -370,38 +442,51 @@ export async function getCasePapersForUser(
   userId,
   { token, refreshToken } = {},
 ) {
-  const patient = await getPatientByEhsUserId(userId, { token, refreshToken })
-  const patientUserId = patient?.patientUserId?.userId
-  if (!patientUserId) return []
+  try {
+    const patient = await getPatientByEhsUserId(userId, { token, refreshToken })
+    const patientUserId = patient?.patientUserId?.userId
+    if (!patientUserId) return []
 
-  const appointments = await getClosedAppointments(patientUserId, {
-    token,
-    refreshToken,
-  })
+    const appointments = await getClosedAppointments(patientUserId, {
+      token,
+      refreshToken,
+    })
 
-  return appointments.map((a, index) => ({
-    id: a.meetingId || a.appointmentId || index,
-    appointmentId: a.appointmentId,
-    visitNo: a.timelineId || a.visitId,
-    visitDate: a.appointmentDate,
-    issue: a.speciality || a.specility || "General",
-    doctor: a.userFullname || a.doctorName || "Doctor",
-    visitedOn: a.appointmentSlot,
-    doctorImage: a.userProfileImage,
-  }))
+    return appointments.map((a, index) => ({
+      id: a.meetingId || a.appointmentId || index,
+      appointmentId: a.appointmentId,
+      visitNo: a.timelineId || a.visitId,
+      visitDate: a.appointmentDate,
+      issue: a.speciality || a.specility || "General",
+      doctor: a.userFullname || a.doctorName || "Doctor",
+      visitedOn: a.appointmentSlot,
+      doctorImage: a.userProfileImage,
+    }))
+  } catch (error) {
+    console.error("getCasePapersForUser error:", error)
+    return []
+  }
 }
 
+/**
+ * Safe EMR GET with increased timeout and proper error handling
+ */
 async function safeEmrGet(path, { token, refreshToken } = {}) {
   try {
     const { response, data } = await getJson(medUrl(`/setu_beta_ws${path}`), {
       token,
       refreshToken,
+      timeout: 20000, // Increased timeout for EMR calls
     })
-    if (!response.ok) return []
+    if (!response.ok) {
+      console.warn(`EMR API returned ${response.status} for ${path}`)
+      return []
+    }
     if (Array.isArray(data)) return data
     if (Array.isArray(data?.data)) return data.data
     return []
-  } catch {
+  } catch (error) {
+    console.warn(`safeEmrGet error for ${path}:`, error?.message || error)
     return []
   }
 }
@@ -411,77 +496,84 @@ export async function getCasePaperDetail(
   userId,
   { token, refreshToken } = {},
 ) {
-  const [
-    chiefComplaint,
-    symptoms,
-    vitals,
-    diagnosis,
-    investigations,
-    prescriptions,
-  ] = await Promise.all([
-    safeEmrGet(`/temr_visit_chief_complaint/vccListbytimelineid/${visitId}`, {
-      token,
-      refreshToken,
-    }),
-    safeEmrGet(`/temr_visit_symptom/vccListbytimelineid/${visitId}`, {
-      token,
-      refreshToken,
-    }),
-    safeEmrGet(`/temr_vital/vccListbytimelineid/${visitId}`, {
-      token,
-      refreshToken,
-    }),
-    safeEmrGet(`/temr_visit_diagnosis/vccListbytimelineid/${visitId}`, {
-      token,
-      refreshToken,
-    }),
-    safeEmrGet(`/temr_visit_investigation/vccInvestigations/${visitId}`, {
-      token,
-      refreshToken,
-    }),
-    safeEmrGet(`/temr_visit_prescription/bytimelineid/${visitId}`, {
-      token,
-      refreshToken,
-    }),
-  ])
-
-  let patient = null
-  let visitInfo = { visitNo: visitId }
   try {
-    patient = await getPatientByEhsUserId(userId, { token, refreshToken })
-    const patientUserId = patient?.patientUserId?.userId || userId
-    const appointments = await getClosedAppointments(patientUserId, {
-      token,
-      refreshToken,
-    })
-    const found = appointments.find(
-      (a) =>
-        String(a.timelineId || a.visitId) === String(visitId) ||
-        String(a.appointmentId) === String(visitId),
-    )
-    if (found) {
-      visitInfo = {
-        visitNo: found.timelineId ?? found.visitId ?? visitId,
-        visitDate: found.appointmentDate,
-        issue: found.speciality || found.specility || "General",
-        doctor: found.userFullname || found.doctorName || "Doctor",
-        visitedOn: found.appointmentSlot,
-        doctorImage: found.userProfileImage,
-      }
-    }
-  } catch {
-    // preview-only visit info
-  }
+    const [
+      chiefComplaint,
+      symptoms,
+      vitals,
+      diagnosis,
+      investigations,
+      prescriptions,
+    ] = await Promise.all([
+      safeEmrGet(`/temr_visit_chief_complaint/vccListbytimelineid/${visitId}`, {
+        token,
+        refreshToken,
+      }),
+      safeEmrGet(`/temr_visit_symptom/vccListbytimelineid/${visitId}`, {
+        token,
+        refreshToken,
+      }),
+      safeEmrGet(`/temr_vital/vccListbytimelineid/${visitId}`, {
+        token,
+        refreshToken,
+      }),
+      safeEmrGet(`/temr_visit_diagnosis/vccListbytimelineid/${visitId}`, {
+        token,
+        refreshToken,
+      }),
+      safeEmrGet(`/temr_visit_investigation/vccInvestigations/${visitId}`, {
+        token,
+        refreshToken,
+      }),
+      safeEmrGet(`/temr_visit_prescription/bytimelineid/${visitId}`, {
+        token,
+        refreshToken,
+      }),
+    ])
 
-  return {
-    patient,
-    visitInfo,
-    chiefComplaint,
-    symptoms,
-    vitals,
-    diagnosis,
-    investigations,
-    prescriptions,
+    let patient = null
+    let visitInfo = { visitNo: visitId }
+    
+    try {
+      patient = await getPatientByEhsUserId(userId, { token, refreshToken })
+      const patientUserId = patient?.patientUserId?.userId || userId
+      const appointments = await getClosedAppointments(patientUserId, {
+        token,
+        refreshToken,
+      })
+      const found = appointments.find(
+        (a) =>
+          String(a.timelineId || a.visitId) === String(visitId) ||
+          String(a.appointmentId) === String(visitId),
+      )
+      if (found) {
+        visitInfo = {
+          visitNo: found.timelineId ?? found.visitId ?? visitId,
+          visitDate: found.appointmentDate,
+          issue: found.speciality || found.specility || "General",
+          doctor: found.userFullname || found.doctorName || "Doctor",
+          visitedOn: found.appointmentSlot,
+          doctorImage: found.userProfileImage,
+        }
+      }
+    } catch (error) {
+      console.warn("Failed to fetch visit info:", error?.message || error)
+      // preview-only visit info
+    }
+
+    return {
+      patient,
+      visitInfo,
+      chiefComplaint,
+      symptoms,
+      vitals,
+      diagnosis,
+      investigations,
+      prescriptions,
+    }
+  } catch (error) {
+    console.error("getCasePaperDetail error:", error)
+    throw error
   }
 }
 
@@ -690,4 +782,44 @@ export function formatReportDate(value) {
     month: "short",
     year: "numeric",
   })
+}
+
+// Add these to reports.js
+
+/**
+ * Create vital signs
+ */
+export async function createVitalSigns(data, { token, refreshToken } = {}) {
+  const response = await fetch(reportsUrl("/vital-signs-reports"), {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...authHeaders(token, refreshToken),
+    },
+    body: JSON.stringify(data),
+  });
+  const result = await response.json();
+  if (!response.ok) {
+    throw new Error(result?.message || "Failed to create vital signs");
+  }
+  return result?.data || result;
+}
+
+/**
+ * Update vital signs
+ */
+export async function updateVitalSigns(id, data, { token, refreshToken } = {}) {
+  const response = await fetch(reportsUrl(`/vital-signs-reports/${id}`), {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      ...authHeaders(token, refreshToken),
+    },
+    body: JSON.stringify(data),
+  });
+  const result = await response.json();
+  if (!response.ok) {
+    throw new Error(result?.message || "Failed to update vital signs");
+  }
+  return result?.data || result;
 }

@@ -11,8 +11,8 @@ dist-ssr/
 # Environment & secrets — NEVER commit
 .env
 .env.*
-!.env.example
-!.env.production.example
+.env.example
+.env.production.example
 public/api/config.php
 public/api/data/usage_*.json
 
