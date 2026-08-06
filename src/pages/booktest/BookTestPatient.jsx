@@ -23,6 +23,7 @@ export default function BookTestPatient() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState("")
   const [selectedAddressId, setSelectedAddressId] = useState("")
+  const [showNewAddressForm, setShowNewAddressForm] = useState(false)
   const [form, setForm] = useState({
     name: session?.first_name || "",
     gender: "MALE",
@@ -47,6 +48,8 @@ export default function BookTestPatient() {
           list?.find((a) => a.isDefault || a.is_default) || list?.[0]
         if (def) {
           setSelectedAddressId(String(def.addressId || def.id))
+          // Auto-fill form with default address
+          fillFormWithAddress(def)
         }
       } catch (err) {
         if (!cancelled) setError(err.message || "Could not load addresses")
@@ -60,6 +63,19 @@ export default function BookTestPatient() {
     }
   }, [session])
 
+  // Function to fill form with address data
+  const fillFormWithAddress = (address) => {
+    if (!address) return
+    setForm(prev => ({
+      ...prev,
+      name: address.recipientName || address.name || prev.name,
+      phone: address.phoneNumber || address.phone || prev.phone,
+      pincode: address.pincode || prev.pincode,
+      houseNumber: address.houseNumber || prev.houseNumber,
+      addressLine2: address.addressLine2 || prev.addressLine2,
+    }))
+  }
+
   const update = (key, value) => setForm((f) => ({ ...f, [key]: value }))
 
   const continueWithAddress = (address) => {
@@ -72,6 +88,8 @@ export default function BookTestPatient() {
       setError("Name, age and mobile are required.")
       return
     }
+    
+    // Set the flow data
     setFlow({
       patient: {
         name: form.name.trim(),
@@ -81,22 +99,35 @@ export default function BookTestPatient() {
         email: form.email.trim(),
         contactNumber: form.phone.trim(),
       },
-      address,
+      address: address,
       cartProductCodes: items,
     })
+    
+    // Navigate to slots page
     navigate("/app/book-tests/slots")
   }
 
   const handleContinueExisting = async () => {
     setError("")
+    
+    // Find the selected address
     const address = addresses.find(
       (a) => String(a.addressId || a.id) === String(selectedAddressId),
     )
+    
     if (!address) {
       setError("Select an address or add a new one.")
       return
     }
+    
+    // Validate patient details
+    if (!form.name.trim() || !form.age || !form.phone) {
+      setError("Name, age and mobile are required.")
+      return
+    }
+    
     try {
+      // Set default address (non-blocking)
       await setDefaultAddress(session, {
         userId: session.user_id,
         addressId: address.addressId || address.id,
@@ -104,7 +135,19 @@ export default function BookTestPatient() {
     } catch {
       /* non-blocking */
     }
+    
+    // Continue with the selected address
     continueWithAddress(address)
+  }
+
+  const handleAddressSelect = (id) => {
+    setSelectedAddressId(id)
+    const selectedAddress = addresses.find(
+      (a) => String(a.addressId || a.id) === String(id)
+    )
+    if (selectedAddress) {
+      fillFormWithAddress(selectedAddress)
+    }
   }
 
   const handleAddAndContinue = async (e) => {
@@ -126,14 +169,26 @@ export default function BookTestPatient() {
         addressType: "home",
         addressLine2: form.addressLine2.trim(),
       })
+      
+      // Create address object with proper structure
       const address = {
-        ...(saved?.address || saved || {}),
-        addressId: saved?.addressId || saved?.address?.addressId || saved?.id,
+        addressId: saved?.addressId || saved?.id || saved?.address?.addressId,
+        id: saved?.id || saved?.addressId || saved?.address?.id,
         pincode: pin,
         houseNumber: form.houseNumber.trim(),
         recipientName: form.name.trim(),
         phoneNumber: form.phone.trim(),
+        addressLine2: form.addressLine2.trim(),
+        isDefault: false,
       }
+      
+      // Add to addresses list and select it
+      const updatedAddresses = [...addresses, address]
+      setAddresses(updatedAddresses)
+      setSelectedAddressId(String(address.addressId || address.id))
+      setShowNewAddressForm(false)
+      
+      // Navigate to slots with the new address
       continueWithAddress(address)
     } catch (err) {
       setError(err.message || "Could not save address")
@@ -215,24 +270,36 @@ export default function BookTestPatient() {
 
         {addresses.length > 0 && (
           <div className="rounded-3xl border border-violet-100 bg-white p-5">
-            <h2 className="font-semibold">Select address</h2>
+            <div className="flex justify-between items-center">
+              <h2 className="font-semibold">Select address</h2>
+              <button
+                type="button"
+                onClick={() => setShowNewAddressForm(!showNewAddressForm)}
+                className="text-sm text-violet-600 hover:text-violet-800 font-medium"
+              >
+                {showNewAddressForm ? "Cancel" : "+ Add New"}
+              </button>
+            </div>
             <div className="mt-3 space-y-2">
               {addresses.map((a) => {
                 const id = String(a.addressId || a.id)
+                const isSelected = selectedAddressId === id
                 return (
-                  <label
+                  <div
                     key={id}
                     className={`flex cursor-pointer gap-3 rounded-2xl border px-3 py-3 text-sm ${
-                      selectedAddressId === id
+                      isSelected
                         ? "border-violet-500 bg-violet-50"
-                        : "border-violet-100"
+                        : "border-violet-100 hover:border-violet-300"
                     }`}
+                    onClick={() => handleAddressSelect(id)}
                   >
                     <input
                       type="radio"
                       name="address"
-                      checked={selectedAddressId === id}
-                      onChange={() => setSelectedAddressId(id)}
+                      checked={isSelected}
+                      onChange={() => handleAddressSelect(id)}
+                      className="mt-1"
                     />
                     <span>
                       <strong>{a.recipientName || a.name || "Address"}</strong>
@@ -241,7 +308,7 @@ export default function BookTestPatient() {
                         .filter(Boolean)
                         .join(", ")}
                     </span>
-                  </label>
+                  </div>
                 )
               })}
             </div>
@@ -253,51 +320,53 @@ export default function BookTestPatient() {
           </div>
         )}
 
-        <form
-          onSubmit={handleAddAndContinue}
-          className="rounded-3xl border border-violet-100 bg-white p-5"
-        >
-          <h2 className="font-semibold">
-            {addresses.length ? "Or add new address" : "Collection address"}
-          </h2>
-          <div className="mt-3 grid gap-3 sm:grid-cols-2">
-            <label className="text-sm">
-              <span className="text-setu-muted">Pincode</span>
-              <input
-                className="mt-1 w-full rounded-xl border border-violet-100 px-3 py-2"
-                value={form.pincode}
-                onChange={(e) => update("pincode", e.target.value)}
-                maxLength={6}
-                required={addresses.length === 0}
-              />
-            </label>
-            <label className="text-sm">
-              <span className="text-setu-muted">House / Flat</span>
-              <input
-                className="mt-1 w-full rounded-xl border border-violet-100 px-3 py-2"
-                value={form.houseNumber}
-                onChange={(e) => update("houseNumber", e.target.value)}
-                required={addresses.length === 0}
-              />
-            </label>
-            <label className="text-sm sm:col-span-2">
-              <span className="text-setu-muted">Landmark / Area</span>
-              <input
-                className="mt-1 w-full rounded-xl border border-violet-100 px-3 py-2"
-                value={form.addressLine2}
-                onChange={(e) => update("addressLine2", e.target.value)}
-              />
-            </label>
-          </div>
-          <button
-            type="submit"
-            disabled={saving}
-            className="mt-4 inline-flex min-h-12 w-full items-center justify-center rounded-2xl text-sm font-semibold text-white disabled:opacity-60"
-            style={{ backgroundColor: ACCENT }}
+        {(showNewAddressForm || addresses.length === 0) && (
+          <form
+            onSubmit={handleAddAndContinue}
+            className="rounded-3xl border border-violet-100 bg-white p-5"
           >
-            {saving ? "Saving…" : "Save address & continue"}
-          </button>
-        </form>
+            <h2 className="font-semibold">
+              {addresses.length ? "Add new address" : "Collection address"}
+            </h2>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <label className="text-sm">
+                <span className="text-setu-muted">Pincode</span>
+                <input
+                  className="mt-1 w-full rounded-xl border border-violet-100 px-3 py-2"
+                  value={form.pincode}
+                  onChange={(e) => update("pincode", e.target.value)}
+                  maxLength={6}
+                  required
+                />
+              </label>
+              <label className="text-sm">
+                <span className="text-setu-muted">House / Flat</span>
+                <input
+                  className="mt-1 w-full rounded-xl border border-violet-100 px-3 py-2"
+                  value={form.houseNumber}
+                  onChange={(e) => update("houseNumber", e.target.value)}
+                  required
+                />
+              </label>
+              <label className="text-sm sm:col-span-2">
+                <span className="text-setu-muted">Landmark / Area</span>
+                <input
+                  className="mt-1 w-full rounded-xl border border-violet-100 px-3 py-2"
+                  value={form.addressLine2}
+                  onChange={(e) => update("addressLine2", e.target.value)}
+                />
+              </label>
+            </div>
+            <button
+              type="submit"
+              disabled={saving}
+              className="mt-4 inline-flex min-h-12 w-full items-center justify-center rounded-2xl text-sm font-semibold text-white disabled:opacity-60"
+              style={{ backgroundColor: ACCENT }}
+            >
+              {saving ? "Saving…" : "Save address & continue"}
+            </button>
+          </form>
+        )}
       </div>
     </BookTestShell>
   )

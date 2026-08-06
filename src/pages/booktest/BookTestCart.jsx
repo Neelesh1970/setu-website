@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { Link, useNavigate } from "react-router-dom"
-import { Loader2, Minus, Plus, Trash2 } from "lucide-react"
+import { Loader2, Minus, Trash2 } from "lucide-react"
 import { useAuth } from "../../context/AuthContext"
 import { useBookTest } from "../../context/BookTestContext"
 import { addToCart, removeFromCart } from "../../api/booktest"
@@ -82,14 +82,6 @@ export default function BookTestCart() {
                     {qty <= 1 ? <Trash2 size={14} /> : <Minus size={14} />}
                   </button>
                   <span className="w-6 text-center text-sm font-semibold">{qty}</span>
-                  <button
-                    type="button"
-                    disabled={busyCode === code}
-                    onClick={() => updateQty(item, 1)}
-                    className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-violet-50 text-violet-800"
-                  >
-                    <Plus size={14} />
-                  </button>
                 </div>
               </div>
             )
