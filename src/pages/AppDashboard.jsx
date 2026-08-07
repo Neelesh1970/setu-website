@@ -199,7 +199,7 @@ export default function AppDashboard() {
               key={activeSlide.key}
               src={activeSlide.src}
               alt={activeSlide.title || "SETU highlight"}
-              className="h-36 w-full object-cover sm:h-48 md:h-56"
+              className="w-full h-[220px] sm:h-[260px] md:h-[350px] object-cover object-center rounded-2xl"
               loading="lazy"
             />
             <div

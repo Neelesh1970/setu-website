@@ -1,7 +1,6 @@
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useState, useCallback, useRef } from "react"
 import { Link, useNavigate } from "react-router-dom"
-
-import { Droplets, Loader2, Plus, Search, Trash2, RefreshCw, CheckCircle, AlertCircle  } from "lucide-react"
+import { Droplets, Loader2, Plus, Search, Trash2, RefreshCw, CheckCircle, AlertCircle, X, Minus, ChevronDown, Heart } from "lucide-react"
 import {
   createMeal,
   deleteLastHydrationLog,
@@ -16,14 +15,18 @@ import {
   putHydrationGoal,
   searchFood,
   toggleMealFavorite,
+  todayIstKey,
 } from "../../api/fitness"
 import { FitnessShell } from "./FitnessShell"
 import { FitnessGateLoader, useFitnessGate } from "./useFitnessGate"
-// WaterProgress Component - add this before the FitnessWater component
+
+// ================================================================
+// 1. WaterProgress Component
+// ================================================================
 function WaterProgress({ intake, goal, size = 200, strokeWidth = 20 }) {
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
-  const arcLength = circumference; // Full circle
+  const arcLength = circumference;
   const progress = Math.min(intake / Math.max(goal, 1), 1);
   const progressLength = arcLength * progress;
   const rotation = 90;
@@ -32,7 +35,6 @@ function WaterProgress({ intake, goal, size = 200, strokeWidth = 20 }) {
   return (
     <div className="relative" style={{ width: size, height: size }}>
       <svg width={size} height={size}>
-        {/* Gray background arc */}
         <circle
           cx={center}
           cy={center}
@@ -45,8 +47,6 @@ function WaterProgress({ intake, goal, size = 200, strokeWidth = 20 }) {
           fill="none"
           transform={`rotate(${180 + 90} ${center} ${center})`}
         />
-
-        {/* Green progress arc */}
         <circle
           cx={center}
           cy={center}
@@ -60,8 +60,6 @@ function WaterProgress({ intake, goal, size = 200, strokeWidth = 20 }) {
           className="transition-all duration-700 ease-in-out"
         />
       </svg>
-      
-      {/* Center content */}
       <div className="absolute inset-0 flex flex-col items-center justify-center">
         <p className="text-3xl font-bold text-[#111827]">
           {Math.round(progress * 100)}%
@@ -73,6 +71,10 @@ function WaterProgress({ intake, goal, size = 200, strokeWidth = 20 }) {
     </div>
   );
 }
+
+// ================================================================
+// 2. FitnessFood – main dashboard (unchanged)
+// ================================================================
 export default function FitnessFood() {
   const { ready, auth } = useFitnessGate()
   const [data, setData] = useState(null)
@@ -94,22 +96,17 @@ export default function FitnessFood() {
   useEffect(() => {
     if (!ready) return
     load()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, auth?.token])
 
   const needs = data?.needs || {}
   const mealsToday = data?.mealsToday || {}
-  const calorieGoal =
-    needs?.calories || needs?.calorie_goal || needs?.daily_calories || 2000
+  const calorieGoal = needs?.calories || needs?.calorie_goal || needs?.daily_calories || 2000
   const proteinGoal = needs?.protein_g || needs?.protein || 100
   const carbsGoal = needs?.carbs_g || needs?.carbs || 200
   const fatGoal = needs?.fat_g || needs?.fat || 60
 
   const byMeal = useMemo(() => {
-    const list =
-      mealsToday?.meals ||
-      mealsToday?.items ||
-      (Array.isArray(mealsToday) ? mealsToday : [])
+    const list = mealsToday?.meals || mealsToday?.items || (Array.isArray(mealsToday) ? mealsToday : [])
     const map = { breakfast: 0, lunch: 0, dinner: 0, snacks: 0 }
     list.forEach((m) => {
       const type = String(m.meal_type || m.type || "").toLowerCase()
@@ -120,8 +117,7 @@ export default function FitnessFood() {
     return map
   }, [mealsToday])
 
-  const consumed =
-    byMeal.breakfast + byMeal.lunch + byMeal.dinner + byMeal.snacks
+  const consumed = byMeal.breakfast + byMeal.lunch + byMeal.dinner + byMeal.snacks
 
   if (!ready) {
     return (
@@ -210,6 +206,9 @@ function Quick({ to, label }) {
   )
 }
 
+// ================================================================
+// 3. FitnessWater (unchanged)
+// ================================================================
 export function FitnessWater() {
   const { ready, auth } = useFitnessGate()
   const [goal, setGoal] = useState(2000)
@@ -236,7 +235,6 @@ export function FitnessWater() {
       const goalMl = g?.daily_ml || g?.goal_ml || g?.data?.daily_ml || 2000
       setGoal(Number(goalMl) || 2000)
       
-      // Parse entries and consumed
       const logs = today?.logs || today?.entries || []
       setEntries(logs)
       const totalConsumed = logs.reduce((sum, entry) => sum + Number(entry.amount || entry.amount_ml || 0), 0)
@@ -251,7 +249,6 @@ export function FitnessWater() {
   useEffect(() => {
     if (!ready) return
     load()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, auth?.token])
 
   const add = async (ml) => {
@@ -259,7 +256,6 @@ export function FitnessWater() {
     setIsAdding(true)
     setError("")
     setSuccess("")
-    
     try {
       if (consumed >= goal) {
         setError("Today's water intake done")
@@ -281,7 +277,6 @@ export function FitnessWater() {
     setIsDeleting(true)
     setError("")
     setSuccess("")
-    
     try {
       await deleteLastHydrationLog(auth)
       setSuccess("Last entry removed ✓")
@@ -298,7 +293,6 @@ export function FitnessWater() {
     setLoadingGoal(true)
     setError("")
     setSuccess("")
-    
     try {
       await putHydrationGoal(auth, Number(goal))
       setSuccess("Goal updated ✓")
@@ -359,7 +353,6 @@ export function FitnessWater() {
             </div>
           )}
 
-          {/* Circular Progress - Matches React Native exactly */}
           <div className="flex flex-col items-center rounded-2xl border border-[#E5E7EB] bg-white p-5 shadow-sm">
             <WaterProgress
               intake={consumed}
@@ -367,7 +360,6 @@ export function FitnessWater() {
               size={Math.min(window.innerWidth * 0.7, 300)}
               strokeWidth={30}
             />
-            
             <div className="mt-4 text-center">
               <p className="text-3xl font-bold text-[#111827]">
                 {consumed} ml
@@ -387,7 +379,6 @@ export function FitnessWater() {
             </div>
           </div>
 
-          {/* Daily Goal Section */}
           <div className="rounded-xl bg-[#F8F9FA] p-4">
             <div className="flex justify-between items-center mb-2">
               <p className="text-sm font-semibold text-[#333]">Daily Goal</p>
@@ -403,7 +394,6 @@ export function FitnessWater() {
             </div>
           </div>
 
-          {/* Quick Add Header */}
           <div className="flex justify-between items-center">
             <p className="text-sm font-semibold">Quick Add</p>
             <button
@@ -416,7 +406,6 @@ export function FitnessWater() {
             </button>
           </div>
 
-          {/* Quick Add Buttons */}
           {remaining <= 0 ? (
             <div className="rounded-xl bg-[#10b981] p-4 text-center">
               <p className="text-sm font-bold text-white">Today's water intake done</p>
@@ -441,7 +430,6 @@ export function FitnessWater() {
             </div>
           )}
 
-          {/* Custom Amount Input - NEW */}
           <div className="flex gap-2">
             <input
               type="number"
@@ -461,7 +449,6 @@ export function FitnessWater() {
             </button>
           </div>
 
-          {/* Goal Setting - NEW */}
           <div className="flex gap-2 rounded-xl border border-[#E5E7EB] bg-white p-3">
             <input
               type="number"
@@ -481,7 +468,6 @@ export function FitnessWater() {
             </button>
           </div>
 
-          {/* Added Section */}
           <p className="text-sm font-semibold py-2">Added</p>
 
           {loading ? (
@@ -504,7 +490,6 @@ export function FitnessWater() {
             </div>
           )}
 
-          {/* Footer */}
           <p className="text-center text-sm font-bold text-[#333] py-4">
             Water is life — drink enough 💧
           </p>
@@ -513,60 +498,272 @@ export function FitnessWater() {
     </FitnessShell>
   )
 }
+
+// ================================================================
+// 4. FitnessAddFood – Enhanced with meal builder and fixed save
+// ================================================================
+
+// ----- Helper functions for food type detection (copied from RN) -----
+const LIQUID_KEYWORDS = [
+  'milk', 'juice', 'water', 'coffee', 'tea', 'lassi', 'buttermilk', 'chaas',
+  'soup', 'shake', 'smoothie', 'drink', 'beverage', 'curd', 'yogurt', 'oil',
+  'ghee', 'coconut water', 'nimbu pani', 'sharbat', 'thandai', 'aam panna',
+  'jaljeera', 'cola', 'soda', 'beer', 'wine', 'whiskey', 'rum', 'vodka',
+  'liquor', 'broth', 'stock', 'sauce', 'syrup', 'honey', 'dahi', 'raita'
+]
+const COUNTABLE_KEYWORDS = [
+  'egg', 'roti', 'chapati', 'paratha', 'bread', 'biscuit', 'cookie', 'banana',
+  'apple', 'orange', 'samosa', 'pakora', 'idli', 'dosa', 'vada', 'puri',
+  'bhatura', 'naan', 'kulcha', 'toast', 'sandwich', 'burger', 'pizza slice',
+  'momos', 'dumpling', 'spring roll', 'cutlet', 'tikki', 'ladoo', 'laddu',
+  'gulab jamun', 'rasgulla', 'jalebi', 'barfi', 'peda', 'modak', 'kachori',
+  'mathri', 'gujiya', 'chicken piece', 'chicken leg', 'drumstick', 'wing',
+  'thigh', 'breast piece', 'mutton piece', 'fish piece', 'prawn', 'shrimp',
+  'paneer cube', 'potato', 'tomato', 'onion', 'cucumber', 'carrot', 'mango',
+  'papaya slice', 'watermelon slice', 'guava', 'grape', 'cherry', 'strawberry',
+  'almond', 'cashew', 'walnut', 'peanut', 'pistachio', 'date', 'fig', 'raisin'
+]
+
+const isLiquidFood = (food) => {
+  const name = (food?.name || '').toLowerCase()
+  const servingSize = (food?.nutrition_per_serving?.serving_size || '').toLowerCase()
+  if (servingSize.includes('ml')) return true
+  return LIQUID_KEYWORDS.some(keyword => name.includes(keyword))
+}
+
+const isCountableFood = (food) => {
+  const name = (food?.name || '').toLowerCase()
+  const servingSize = (food?.nutrition_per_serving?.serving_size || '').toLowerCase()
+  if (/\d+\s*(piece|pcs|unit|slice|egg|roti|chapati|idli|dosa|vada)/i.test(servingSize)) return true
+  return COUNTABLE_KEYWORDS.some(keyword => name.includes(keyword))
+}
+
+const extractUnitFromServing = (servingSize, foodName) => {
+  const match = servingSize.match(/^\d+\s+([^(]+)/)
+  if (match) return match[1].trim()
+  const nameLower = foodName.toLowerCase()
+  if (nameLower.includes('egg')) return 'Egg'
+  if (nameLower.includes('roti') || nameLower.includes('chapati')) return 'Piece'
+  if (nameLower.includes('idli')) return 'Idli'
+  if (nameLower.includes('dosa')) return 'Dosa'
+  if (nameLower.includes('paratha')) return 'Paratha'
+  if (nameLower.includes('banana')) return 'Banana'
+  if (nameLower.includes('apple')) return 'Apple'
+  if (nameLower.includes('samosa')) return 'Samosa'
+  if (nameLower.includes('slice')) return 'Slice'
+  return 'Piece'
+}
+
+const parseServingOptions = (food) => {
+  const isLiquid = isLiquidFood(food)
+  const isCountable = isCountableFood(food)
+  const servingSize = food.nutrition_per_serving?.serving_size || ''
+  const foodName = food.name || ''
+
+  if (isLiquid) {
+    return [
+      { unit: "ml", unit_display: "ml", unit_display_plural: "ml", grams_equivalent: 1, is_default: true, food_type: "liquid" }
+    ]
+  }
+  if (isCountable) {
+    let unitName = extractUnitFromServing(servingSize, foodName)
+    let gramsPerUnit = 50
+    const gramsMatch = servingSize.match(/\((\d+\.?\d*)\s*g\)/i)
+    const countMatch = servingSize.match(/^(\d+)/)
+    if (gramsMatch && countMatch) {
+      const totalGrams = parseFloat(gramsMatch[1])
+      const count = parseFloat(countMatch[1])
+      gramsPerUnit = totalGrams / count
+    }
+    return [
+      { unit: "piece", unit_display: unitName, unit_display_plural: `${unitName}s`, grams_equivalent: gramsPerUnit, is_default: true, food_type: "countable" }
+    ]
+  }
+  const options = [
+    { unit: "g", unit_display: "Gram", unit_display_plural: "Grams", grams_equivalent: 1, is_default: true, food_type: "solid" }
+  ]
+  const match = servingSize.match(/^(\d+)\s+([^(]+)\s*\(([\d.]+)\s*g\)/i)
+  if (match) {
+    const [, count, unitName, grams] = match
+    const gramsPerUnit = parseFloat(grams) / parseFloat(count)
+    options.push({
+      unit: unitName.trim().toLowerCase(),
+      unit_display: unitName.trim(),
+      unit_display_plural: `${unitName.trim()}s`,
+      grams_equivalent: gramsPerUnit,
+      is_default: false,
+      food_type: "solid"
+    })
+  }
+  return options
+}
+
+const QUICK_SUGGESTIONS = ["Egg", "Poha", "Oats", "Roti", "Rice", "Dal", "Chicken", "Milk", "Banana", "Paneer"]
+
+// ----- The enhanced component -----
 export function FitnessAddFood() {
   const navigate = useNavigate()
   const { ready, auth } = useFitnessGate()
-  const [q, setQ] = useState("")
-  const [results, setResults] = useState([])
-  const [mealType, setMealType] = useState("breakfast")
-  const [loading, setLoading] = useState(false)
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState("")
+  const [search, setSearch] = useState("")
+  const [searchResults, setSearchResults] = useState([])
+  const [searching, setSearching] = useState(false)
+  const [showModal, setShowModal] = useState(false)
 
+  const [selectedFood, setSelectedFood] = useState(null)
+  const [selectedUnit, setSelectedUnit] = useState(null)
+  const [quantity, setQuantity] = useState("1")
+  const [mealType, setMealType] = useState("breakfast")
+
+  const [addedMeals, setAddedMeals] = useState([])
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState("")
+  const [saveSuccess, setSaveSuccess] = useState("")
+
+  // Debounced search
+  const debounceTimeout = useRef(null)
   useEffect(() => {
-    if (!ready || q.trim().length < 2) {
-      setResults([])
-      return undefined
+    if (debounceTimeout.current) clearTimeout(debounceTimeout.current)
+
+    if (!search.trim()) {
+      setSearchResults([])
+      return
     }
-    let cancelled = false
-    const t = setTimeout(async () => {
-      setLoading(true)
+
+    setSearching(true)
+    debounceTimeout.current = setTimeout(async () => {
       try {
-        const list = await searchFood(auth, q.trim())
-        if (!cancelled) setResults(list)
+        const results = await searchFood(auth, search.trim())
+        setSearchResults(results || [])
       } catch (err) {
-        if (!cancelled) setError(err.message || "Search failed")
+        console.error("Search error:", err)
+        setSearchResults([])
       } finally {
-        if (!cancelled) setLoading(false)
+        setSearching(false)
       }
     }, 350)
-    return () => {
-      cancelled = true
-      clearTimeout(t)
-    }
-  }, [q, ready, auth])
 
-  const addFood = async (food) => {
+    return () => clearTimeout(debounceTimeout.current)
+  }, [search, auth])
+
+  const handleQuickSuggestion = (suggestion) => {
+    setSearch(suggestion)
+    setShowModal(true)
+  }
+
+  const handleSelectFood = (food) => {
+    setSelectedFood(food)
+    setShowModal(false)
+    setSearch("")
+    const options = parseServingOptions(food)
+    const defaultUnit = options.find(u => u.is_default) || options[0]
+    if (defaultUnit) {
+      setSelectedUnit(defaultUnit)
+      if (defaultUnit.food_type === 'liquid' || defaultUnit.unit === 'ml') setQuantity("100")
+      else if (defaultUnit.food_type === 'countable' || defaultUnit.unit === 'piece') setQuantity("1")
+      else setQuantity("100")
+    }
+  }
+
+  const handleAddMeal = () => {
+    if (!selectedFood || !selectedUnit) return
+    const qty = parseFloat(quantity) || 0
+    if (qty <= 0) return
+
+    const gramsEquivalent = selectedUnit.grams_equivalent || 100
+    const totalGrams = qty * gramsEquivalent
+    const factor = totalGrams / 100
+    const nutrition = {
+      calories: Math.round((selectedFood.calories_per_100g || 0) * factor),
+      protein: Math.round((selectedFood.protein_g_per_100g || 0) * factor * 10) / 10,
+      carbs: Math.round((selectedFood.carbs_g_per_100g || 0) * factor * 10) / 10,
+      fat: Math.round((selectedFood.fat_g_per_100g || 0) * factor * 10) / 10,
+      totalGrams
+    }
+
+    const newMeal = {
+      id: Date.now(),
+      food: selectedFood,
+      quantity: qty,
+      unit: selectedUnit,
+      nutrition,
+    }
+    setAddedMeals([...addedMeals, newMeal])
+    setSelectedFood(null)
+    setSelectedUnit(null)
+    setQuantity("1")
+  }
+
+  const handleRemoveMeal = (id) => {
+    setAddedMeals(addedMeals.filter(m => m.id !== id))
+  }
+
+  const totalNutrition = useMemo(() => {
+    return addedMeals.reduce(
+      (acc, m) => ({
+        calories: acc.calories + (m.nutrition?.calories || 0),
+        protein: acc.protein + (m.nutrition?.protein || 0),
+        carbs: acc.carbs + (m.nutrition?.carbs || 0),
+        fat: acc.fat + (m.nutrition?.fat || 0),
+      }),
+      { calories: 0, protein: 0, carbs: 0, fat: 0 }
+    )
+  }, [addedMeals])
+
+  // ✅ FIXED: added 'day' field and correct unit
+  const handleSaveMeal = async () => {
+    if (addedMeals.length === 0) {
+      setSaveError("Please add at least one food item.")
+      return
+    }
     setSaving(true)
-    setError("")
+    setSaveError("")
+    setSaveSuccess("")
     try {
-      await createMeal(auth, {
-        meal_type: mealType,
-        name: food.name || food.food_name || food.title,
-        food_id: food.id || food.food_id,
-        calories: Number(food.calories || food.calorie || food.energy || 0),
-        protein_g: Number(food.protein || food.protein_g || 0),
-        carbs_g: Number(food.carbs || food.carbs_g || food.carbohydrates || 0),
-        fat_g: Number(food.fat || food.fat_g || 0),
-        quantity: 1,
-        unit: food.unit || "serving",
-      })
-      navigate("/app/fitness/food/meals")
+      const day = todayIstKey()
+      for (const meal of addedMeals) {
+        const body = {
+          meal_type: mealType,
+          day,
+          food_name: meal.food.name || meal.food.food_name || "",
+          food_id: meal.food.id,
+          calories: meal.nutrition.calories,
+          protein_g: meal.nutrition.protein,
+          carbs_g: meal.nutrition.carbs,
+          fat_g: meal.nutrition.fat,
+          quantity: Number(meal.quantity) || 0,
+          unit: meal.unit.unit || meal.unit.unit_display || "g",
+          amount_grams: Math.round(meal.nutrition.totalGrams || 0),
+          food_type: meal.unit.food_type || "solid",
+        }
+        await createMeal(auth, body)
+      }
+      setSaveSuccess("Meal saved successfully!")
+      setTimeout(() => navigate("/app/fitness/food/meals"), 800)
     } catch (err) {
-      setError(err.message || "Failed to add meal")
+      console.error("Save error:", err)
+      setSaveError(err.message || "Failed to save meal")
     } finally {
       setSaving(false)
     }
+  }
+
+  const incrementQuantity = () => setQuantity(prev => String((parseFloat(prev) || 0) + 1))
+  const decrementQuantity = () => {
+    const val = parseFloat(quantity) || 0
+    if (val > 1) setQuantity(String(val - 1))
+  }
+
+  const formatMealQuantity = (meal) => {
+    const qty = meal.quantity
+    const unit = meal.unit
+    if (unit.food_type === 'liquid' || unit.unit === 'ml') return `${qty} ml`
+    if (unit.food_type === 'countable' || unit.unit === 'piece') {
+      return `${qty} ${qty === 1 ? unit.unit_display : unit.unit_display_plural}`
+    }
+    if (unit.unit === 'cup' || unit.unit === 'glass') {
+      return `${qty} ${qty === 1 ? unit.unit_display : unit.unit_display_plural}`
+    }
+    return `${qty} g`
   }
 
   if (!ready) {
@@ -579,85 +776,378 @@ export function FitnessAddFood() {
 
   return (
     <FitnessShell title="Add food" backTo="/app/fitness/food" showTabs={false}>
-      <div className="mb-3 flex flex-wrap gap-2">
-        {MEAL_TYPES.map((t) => (
-          <button
-            key={t}
-            type="button"
-            onClick={() => setMealType(t)}
-            className={`rounded-full px-3 py-1.5 text-xs font-semibold capitalize ${
-              mealType === t
-                ? "bg-[#10B981] text-white"
-                : "bg-white text-[#374151] ring-1 ring-[#E5E7EB]"
-            }`}
-          >
-            {t}
-          </button>
-        ))}
-      </div>
-
-      <div className="relative mb-4">
-        <Search
-          size={16}
-          className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#9CA3AF]"
-        />
-        <input
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder="Search foods"
-          className="w-full rounded-xl border border-[#E5E7EB] py-2.5 pl-9 pr-3 text-sm outline-none focus:border-[#10B981]"
-        />
-      </div>
-
-      {error && (
-        <p className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
-          {error}
-        </p>
-      )}
-
-      {loading ? (
-        <div className="flex justify-center py-10 text-[#10B981]">
-          <Loader2 className="animate-spin" size={24} />
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 py-4 space-y-4">
+        {/* Meal type selector */}
+        <div className="flex flex-wrap gap-2">
+          {MEAL_TYPES.map((t) => (
+            <button
+              key={t}
+              type="button"
+              onClick={() => setMealType(t)}
+              className={`rounded-full px-4 py-1.5 text-xs font-semibold capitalize ${
+                mealType === t
+                  ? "bg-[#10B981] text-white"
+                  : "bg-white text-[#374151] ring-1 ring-[#E5E7EB]"
+              }`}
+            >
+              {t}
+            </button>
+          ))}
         </div>
-      ) : (
-        <ul className="space-y-2">
-          {results.map((food) => {
-            const id = food.id || food.food_id || food.name
-            return (
-              <li
-                key={id}
-                className="flex items-center gap-3 rounded-xl border border-[#E5E7EB] bg-white px-3 py-3"
+
+        {/* Search card */}
+        <div className="relative">
+          <div
+            className="flex items-center bg-white rounded-xl border border-[#E5E7EB] px-4 py-3 cursor-pointer hover:border-[#10B981] transition"
+            onClick={() => setShowModal(true)}
+          >
+            <Search size={18} className="text-gray-400 mr-3" />
+            <span className="flex-1 text-sm text-gray-500">
+              {selectedFood ? selectedFood.name : "Search food..."}
+            </span>
+            {selectedFood ? (
+              <X
+                size={18}
+                className="text-gray-400 cursor-pointer hover:text-gray-600"
+                onClick={(e) => { e.stopPropagation(); setSelectedFood(null); setSelectedUnit(null); setQuantity("1"); }}
+              />
+            ) : (
+              <ChevronDown size={18} className="text-gray-400" />
+            )}
+          </div>
+        </div>
+
+        {/* Quick suggestions */}
+        <div>
+          <p className="text-sm font-semibold text-gray-700 mb-2">Popular Foods</p>
+          <div className="flex flex-wrap gap-2">
+            {QUICK_SUGGESTIONS.map((item) => (
+              <button
+                key={item}
+                type="button"
+                onClick={() => handleQuickSuggestion(item)}
+                className="flex items-center gap-1 rounded-full bg-[#ECFDF5] px-3 py-1.5 text-sm font-medium text-[#065F46] border border-[#D1FAE5] hover:bg-[#D1FAE5] transition"
               >
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-[#111827]">
-                    {food.name || food.food_name || food.title}
-                  </p>
-                  <p className="text-xs text-[#6B7280]">
-                    {Math.round(Number(food.calories || food.calorie || 0))} kcal
-                  </p>
-                </div>
+                <span>🍽️</span> {item}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Selected food detail card */}
+        {selectedFood && selectedUnit && (
+          <div className="bg-white rounded-xl border border-[#E5E7EB] p-4 shadow-sm">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="bg-[#ECFDF5] text-[#10B981] text-xs font-semibold px-2 py-1 rounded">
+                  {selectedUnit.food_type === 'liquid' ? 'ml' :
+                   selectedUnit.food_type === 'countable' ? 'qty' : 'food'}
+                </span>
+                <span className="font-semibold text-lg">{selectedFood.name}</span>
+              </div>
+              <button onClick={() => { setSelectedFood(null); setSelectedUnit(null); setQuantity("1"); }}>
+                <X size={20} className="text-gray-400 hover:text-gray-600" />
+              </button>
+            </div>
+
+            <div className="flex mt-3 bg-gray-100 rounded-lg p-1">
+              {parseServingOptions(selectedFood).map((opt) => (
                 <button
+                  key={opt.unit}
                   type="button"
-                  disabled={saving}
-                  onClick={() => addFood(food)}
-                  className="rounded-lg bg-[#10B981] p-2 text-white disabled:opacity-50"
+                  onClick={() => {
+                    setSelectedUnit(opt)
+                    if (opt.food_type === 'liquid' || opt.unit === 'ml') setQuantity("100")
+                    else if (opt.food_type === 'countable' || opt.unit === 'piece') setQuantity("1")
+                    else setQuantity("100")
+                  }}
+                  className={`flex-1 flex items-center justify-center gap-1 py-2 rounded-md text-sm font-medium transition ${
+                    selectedUnit.unit === opt.unit
+                      ? "bg-[#10B981] text-white"
+                      : "text-gray-600 hover:bg-gray-200"
+                  }`}
                 >
-                  <Plus size={16} />
+                  <span>
+                    {opt.unit === 'ml' ? '💧' :
+                     opt.unit === 'g' ? '⚖️' :
+                     opt.unit === 'piece' ? '🍳' :
+                     opt.unit === 'cup' ? '☕' :
+                     opt.unit === 'glass' ? '🥛' :
+                     opt.unit === 'bowl' ? '🥣' : '📦'}
+                  </span>
+                  {opt.unit_display_plural || opt.unit}
                 </button>
-              </li>
-            )
-          })}
-        </ul>
+              ))}
+            </div>
+
+            <div className="mt-4">
+              {selectedUnit.food_type === 'countable' || selectedUnit.unit === 'piece' || selectedUnit.unit === 'cup' || selectedUnit.unit === 'glass' || selectedUnit.unit === 'bowl' ? (
+                <div className="flex items-center justify-center gap-6">
+                  <button
+                    type="button"
+                    onClick={decrementQuantity}
+                    className="w-12 h-12 rounded-full bg-[#ECFDF5] flex items-center justify-center text-[#10B981] text-2xl hover:bg-[#D1FAE5] transition"
+                  >
+                    <Minus size={24} />
+                  </button>
+                  <div className="text-center">
+                    <span className="text-4xl font-bold">{quantity}</span>
+                    <span className="text-sm text-gray-500 ml-1">
+                      {parseFloat(quantity) === 1 ? selectedUnit.unit_display : selectedUnit.unit_display_plural}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={incrementQuantity}
+                    className="w-12 h-12 rounded-full bg-[#ECFDF5] flex items-center justify-center text-[#10B981] text-2xl hover:bg-[#D1FAE5] transition"
+                  >
+                    <Plus size={24} />
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center justify-center gap-4">
+                  <input
+                    type="number"
+                    value={quantity}
+                    onChange={(e) => setQuantity(e.target.value)}
+                    className="text-5xl font-bold text-center w-32 bg-transparent outline-none"
+                    min="0"
+                    step={selectedUnit.unit === 'ml' ? 10 : 5}
+                  />
+                  <span className="text-2xl text-gray-400">
+                    {selectedUnit.unit === 'ml' ? 'ml' : 'g'}
+                  </span>
+                </div>
+              )}
+              <div className="flex flex-wrap justify-center gap-2 mt-3">
+                {selectedUnit.food_type === 'liquid' || selectedUnit.unit === 'ml'
+                  ? [50, 100, 150, 200, 250, 500].map(v => (
+                      <button
+                        key={v}
+                        type="button"
+                        onClick={() => setQuantity(String(v))}
+                        className={`px-3 py-1 rounded-full text-sm font-medium transition ${
+                          Number(quantity) === v
+                            ? "bg-[#10B981] text-white"
+                            : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                        }`}
+                      >
+                        {v}
+                      </button>
+                    ))
+                  : selectedUnit.food_type === 'countable' || selectedUnit.unit === 'piece'
+                    ? [1, 2, 3, 4, 5, 6].map(v => (
+                        <button
+                          key={v}
+                          type="button"
+                          onClick={() => setQuantity(String(v))}
+                          className={`px-3 py-1 rounded-full text-sm font-medium transition ${
+                            Number(quantity) === v
+                              ? "bg-[#10B981] text-white"
+                              : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                          }`}
+                        >
+                          {v}
+                        </button>
+                      ))
+                    : [50, 100, 200].map(v => (
+                        <button
+                          key={v}
+                          type="button"
+                          onClick={() => setQuantity(String(v))}
+                          className={`px-3 py-1 rounded-full text-sm font-medium transition ${
+                            Number(quantity) === v
+                              ? "bg-[#10B981] text-white"
+                              : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                          }`}
+                        >
+                          {v}
+                        </button>
+                      ))
+                }
+              </div>
+              <p className="text-xs text-gray-400 text-center mt-2">
+                ≈ {Math.round(parseFloat(quantity || 0) * (selectedUnit?.grams_equivalent || 0))} {selectedUnit.food_type === 'liquid' ? 'ml' : 'g'}
+              </p>
+            </div>
+
+            <div className="grid grid-cols-4 gap-2 mt-4">
+              {[
+                { label: 'Cal', value: Math.round((selectedFood.calories_per_100g || 0) * (parseFloat(quantity) * (selectedUnit?.grams_equivalent || 0) / 100)) },
+                { label: 'Protein', value: ((selectedFood.protein_g_per_100g || 0) * (parseFloat(quantity) * (selectedUnit?.grams_equivalent || 0) / 100)).toFixed(1) },
+                { label: 'Carbs', value: ((selectedFood.carbs_g_per_100g || 0) * (parseFloat(quantity) * (selectedUnit?.grams_equivalent || 0) / 100)).toFixed(1) },
+                { label: 'Fat', value: ((selectedFood.fat_g_per_100g || 0) * (parseFloat(quantity) * (selectedUnit?.grams_equivalent || 0) / 100)).toFixed(1) },
+              ].map((item, idx) => (
+                <div key={idx} className="bg-gray-50 rounded-lg p-2 text-center">
+                  <div className="font-bold text-gray-800">{item.value}</div>
+                  <div className="text-xs text-gray-500">{item.label}</div>
+                </div>
+              ))}
+            </div>
+
+            <button
+              type="button"
+              onClick={handleAddMeal}
+              className="w-full mt-4 bg-[#111827] text-white py-3 rounded-xl font-semibold flex items-center justify-between px-4 hover:bg-[#1f2937] transition"
+            >
+              <span>Add {selectedFood.name}</span>
+              <span className="bg-white text-[#111827] rounded-full p-1">
+                <Plus size={18} />
+              </span>
+            </button>
+          </div>
+        )}
+
+        {/* Added meals list */}
+        {addedMeals.length > 0 && (
+          <div className="bg-white rounded-xl border border-[#E5E7EB] overflow-hidden">
+            <div className="flex items-center gap-2 px-4 py-3 border-b bg-gray-50">
+              <span className="text-sm font-semibold">Your Meal ({addedMeals.length} items)</span>
+            </div>
+            <div className="grid grid-cols-[2fr,1.2fr,0.8fr,0.8fr,auto] gap-2 px-4 py-2 text-xs font-semibold text-gray-500 uppercase bg-gray-50 border-b">
+              <span>Food</span>
+              <span className="text-center">Qty</span>
+              <span className="text-center">Cal</span>
+              <span className="text-center">P</span>
+              <span className="w-8"></span>
+            </div>
+            {addedMeals.map((meal) => (
+              <div key={meal.id} className="grid grid-cols-[2fr,1.2fr,0.8fr,0.8fr,auto] gap-2 px-4 py-2 items-center border-b hover:bg-gray-50">
+                <div>
+                  <div className="font-medium text-sm">{meal.food.name}</div>
+                  <div className="text-xs text-gray-400">
+                    {isLiquidFood(meal.food) ? '🥤 ml' :
+                     isCountableFood(meal.food) ? '🍳 qty' : '🍽️ food'}
+                  </div>
+                </div>
+                <div className="text-center text-sm">{formatMealQuantity(meal)}</div>
+                <div className="text-center text-sm">{meal.nutrition.calories}</div>
+                <div className="text-center text-sm">{meal.nutrition.protein}g</div>
+                <button onClick={() => handleRemoveMeal(meal.id)} className="text-red-500 hover:text-red-700">
+                  <Trash2 size={16} />
+                </button>
+              </div>
+            ))}
+            <div className="grid grid-cols-[2fr,1.2fr,0.8fr,0.8fr,auto] gap-2 px-4 py-2 bg-gray-100 font-semibold">
+              <span>Total</span>
+              <span className="text-center">—</span>
+              <span className="text-center text-[#10B981]">{totalNutrition.calories}</span>
+              <span className="text-center text-[#10B981]">{totalNutrition.protein.toFixed(1)}g</span>
+              <span></span>
+            </div>
+            <div className="flex justify-around py-3 border-t">
+              <div className="text-center">
+                <div className="font-bold">{totalNutrition.calories}</div>
+                <div className="text-xs text-gray-500">kcal</div>
+              </div>
+              <div className="text-center">
+                <div className="font-bold">{totalNutrition.protein.toFixed(1)}g</div>
+                <div className="text-xs text-gray-500">Protein</div>
+              </div>
+              <div className="text-center">
+                <div className="font-bold">{totalNutrition.carbs.toFixed(1)}g</div>
+                <div className="text-xs text-gray-500">Carbs</div>
+              </div>
+              <div className="text-center">
+                <div className="font-bold">{totalNutrition.fat.toFixed(1)}g</div>
+                <div className="text-xs text-gray-500">Fat</div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Save button */}
+        <div className="sticky bottom-0 bg-white pt-4 pb-2 border-t">
+          {saveError && <p className="text-sm text-red-600 mb-2">{saveError}</p>}
+          {saveSuccess && <p className="text-sm text-green-600 mb-2">{saveSuccess}</p>}
+          <button
+            type="button"
+            disabled={saving || addedMeals.length === 0}
+            onClick={handleSaveMeal}
+            className="w-full bg-[#10B981] text-white py-3 rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-[#059669] disabled:opacity-60 transition"
+          >
+            {saving ? <Loader2 className="animate-spin" size={18} /> : null}
+            Save Meal {addedMeals.length > 0 && `(${addedMeals.length})`}
+          </button>
+        </div>
+      </div>
+
+      {/* Search Modal */}
+      {showModal && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40" onClick={() => setShowModal(false)}>
+          <div className="bg-white w-full max-w-lg rounded-t-xl sm:rounded-xl max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-4 py-3 border-b">
+              <span className="font-semibold">Search Foods</span>
+              <button onClick={() => setShowModal(false)} className="text-gray-500 hover:text-gray-700">
+                <X size={22} />
+              </button>
+            </div>
+            <div className="p-4">
+              <div className="relative">
+                <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input
+                  type="text"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Type food name..."
+                  className="w-full pl-10 pr-4 py-2 border rounded-lg outline-none focus:border-[#10B981]"
+                  autoFocus
+                />
+              </div>
+            </div>
+            <div className="flex-1 overflow-y-auto px-4 pb-4">
+              {searching ? (
+                <div className="flex justify-center py-8"><Loader2 className="animate-spin text-[#10B981]" size={24} /></div>
+              ) : searchResults.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">No foods found</div>
+              ) : (
+                searchResults.map((food) => (
+                  <div
+                    key={food.id}
+                    className="flex items-center gap-3 py-2 border-b cursor-pointer hover:bg-gray-50"
+                    onClick={() => handleSelectFood(food)}
+                  >
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                      isLiquidFood(food) ? 'bg-blue-50' :
+                      isCountableFood(food) ? 'bg-yellow-50' : 'bg-green-50'
+                    }`}>
+                      <span className="text-sm">
+                        {isLiquidFood(food) ? '💧' :
+                         isCountableFood(food) ? '🍳' : '🍽️'}
+                      </span>
+                    </div>
+                    <div className="flex-1">
+                      <div className="font-medium">{food.name}</div>
+                      <div className="text-xs text-gray-400">
+                        {food.calories_per_100g} kcal • {food.protein_g_per_100g}g protein
+                        {isLiquidFood(food) && ' • 🥤'}
+                        {isCountableFood(food) && ' • 🍳'}
+                      </div>
+                    </div>
+                    <Plus size={18} className="text-[#10B981]" />
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
       )}
     </FitnessShell>
   )
 }
 
+// ================================================================
+// 5. FitnessMeals (unchanged)
+// ================================================================
+// ================================================================
+// 5. FitnessMeals – delete icon removed
+// ================================================================
 export function FitnessMeals() {
   const { ready, auth } = useFitnessGate()
   const [meals, setMeals] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
+  const [favoriteLoadingId, setFavoriteLoadingId] = useState(null)
 
   const load = async () => {
     setLoading(true)
@@ -673,24 +1163,35 @@ export function FitnessMeals() {
   useEffect(() => {
     if (!ready) return
     load()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, auth?.token])
 
-  const remove = async (id) => {
-    try {
-      await deleteMeal(auth, id)
-      await load()
-    } catch (err) {
-      setError(err.message || "Failed to delete")
-    }
-  }
+  // remove function is kept but no longer called
+  // const remove = async (id) => { ... }
 
   const fav = async (meal) => {
+    if (favoriteLoadingId === meal.id) return
+
+    const nextFavorite = !meal.is_favorite
+    setFavoriteLoadingId(meal.id)
+    setError("")
+    setMeals((prev) =>
+      prev.map((item) =>
+        item.id === meal.id ? { ...item, is_favorite: nextFavorite } : item,
+      ),
+    )
+
     try {
-      await toggleMealFavorite(auth, meal.id, !meal.is_favorite)
+      await toggleMealFavorite(auth, meal.id, nextFavorite)
       await load()
     } catch (err) {
+      setMeals((prev) =>
+        prev.map((item) =>
+          item.id === meal.id ? { ...item, is_favorite: meal.is_favorite } : item,
+        ),
+      )
       setError(err.message || "Failed to update favorite")
+    } finally {
+      setFavoriteLoadingId(null)
     }
   }
 
@@ -713,34 +1214,75 @@ export function FitnessMeals() {
       ) : meals.length === 0 ? (
         <p className="text-center text-sm text-[#6B7280]">No meals logged yet.</p>
       ) : (
-        <ul className="space-y-2">
+        <div className="grid grid-cols-2 gap-3">
           {meals.map((m) => (
-            <li
+            <div
               key={m.id}
-              className="flex items-center gap-3 rounded-xl border border-[#E5E7EB] bg-white px-3 py-3"
+              className="flex flex-col rounded-2xl border border-[#E5E7EB] bg-white p-3 shadow-sm"
             >
-              <div className="min-w-0 flex-1">
-                <p className="font-medium text-[#111827]">{m.name || m.food_name}</p>
-                <p className="text-xs capitalize text-[#6B7280]">
-                  {m.meal_type} · {Math.round(Number(m.calories || 0))} kcal
-                </p>
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold text-[#111827]">{m.name || m.food_name}</p>
+                  <div className="mt-1 flex flex-wrap items-center gap-2">
+                    <span className="rounded-full bg-[#ECFDF5] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#065F46]">
+                      {m.meal_type || "meal"}
+                    </span>
+                    <span className="text-[11px] text-[#6B7280]">
+                      {Math.round(Number(m.calories || 0))} kcal
+                    </span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => fav(m)}
+                    disabled={favoriteLoadingId === m.id}
+                    className={`flex h-8 w-8 items-center justify-center rounded-full border ${m.is_favorite ? "border-[#FBCFE8] bg-[#FFF1F2] text-[#EC4899]" : "border-[#E5E7EB] bg-white text-[#9CA3AF]"}`}
+                  >
+                    {favoriteLoadingId === m.id ? (
+                      <Loader2 className="animate-spin" size={14} />
+                    ) : (
+                      <Heart size={14} fill={m.is_favorite ? "currentColor" : "none"} />
+                    )}
+                  </button>
+                  {/* ❌ Delete button removed */}
+                </div>
               </div>
-              <button
-                type="button"
-                onClick={() => fav(m)}
-                className="text-xs font-semibold text-[#10B981]"
-              >
-                {m.is_favorite ? "Unfav" : "Fav"}
-              </button>
-              <button type="button" onClick={() => remove(m.id)} className="text-red-600">
-                <Trash2 size={16} />
-              </button>
-            </li>
+
+              <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+                <div className="rounded-lg bg-[#F9FAFB] px-2 py-2">
+                  <p className="text-[11px] font-semibold text-[#111827]">{Math.round(Number(m.protein_g || m.protein || 0))}g</p>
+                  <p className="text-[10px] text-[#6B7280]">Protein</p>
+                </div>
+                <div className="rounded-lg bg-[#F9FAFB] px-2 py-2">
+                  <p className="text-[11px] font-semibold text-[#111827]">{Math.round(Number(m.carbs_g || m.carbs || 0))}g</p>
+                  <p className="text-[10px] text-[#6B7280]">Carbs</p>
+                </div>
+                <div className="rounded-lg bg-[#F9FAFB] px-2 py-2">
+                  <p className="text-[11px] font-semibold text-[#111827]">{Math.round(Number(m.fat_g || m.fat || 0))}g</p>
+                  <p className="text-[10px] text-[#6B7280]">Fat</p>
+                </div>
+              </div>
+            </div>
           ))}
-        </ul>
+        </div>
       )}
     </FitnessShell>
   )
+}
+
+// ================================================================
+// 6. FitnessFavoriteMeals (unchanged)
+// ================================================================
+const FAVORITE_TABS = ["Breakfast", "Lunch", "Dinner", "Snacks"]
+
+function titleCaseMeal(mealType = "") {
+  const value = String(mealType || "").toLowerCase()
+  if (value === "breakfast") return "Breakfast"
+  if (value === "lunch") return "Lunch"
+  if (value === "dinner") return "Dinner"
+  if (value === "snacks" || value === "snack") return "Snacks"
+  return "Other"
 }
 
 export function FitnessFavoriteMeals() {
