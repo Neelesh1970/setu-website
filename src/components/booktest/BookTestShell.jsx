@@ -20,7 +20,7 @@ export default function BookTestShell({
   return (
     <div className="min-h-svh bg-[#F7F5FF]">
       <header className="app-shell-header sticky top-0 z-20 border-b border-violet-100 bg-white/95 backdrop-blur">
-        <div className="mx-auto flex max-w-5xl items-center gap-2 px-3 py-2.5 sm:gap-3 sm:px-4 sm:py-3">
+        <div className="mx-auto flex w-full max-w-7xl items-center gap-2 px-3 py-2.5 sm:gap-3 sm:px-4 sm:py-3">
           <Link
             to={backTo}
             className="tap-target inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-violet-50 text-violet-800 transition hover:bg-violet-100"
@@ -66,7 +66,7 @@ export default function BookTestShell({
           )}
         </div>
       </header>
-      <main className="app-shell-main mx-auto max-w-5xl px-3 py-4 sm:px-4 sm:py-5">
+      <main className="app-shell-main mx-auto w-full max-w-7xl px-3 py-4 sm:px-4 sm:py-5">
         {children}
       </main>
     </div>

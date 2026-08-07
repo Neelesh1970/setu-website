@@ -164,7 +164,7 @@ export default function FindProfiles() {
                   className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-[#EEF3FF] px-3 py-1.5 text-xs font-semibold text-[#1F4B99]"
                 >
                   <Play size={12} />
-                  Run again
+                  View Matching Schemes
                 </button>
               </div>
             )
