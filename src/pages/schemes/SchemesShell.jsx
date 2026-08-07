@@ -8,7 +8,7 @@ export function SchemesShell({
   onBack = null,
   children,
   className = "",
-  maxWidth = "max-w-3xl lg:max-w-5xl",
+  maxWidth = "max-w-full sm:max-w-3xl md:max-w-5xl lg:max-w-7xl mx-auto",
   showBack = true,
   rightAction = null,
 }) {

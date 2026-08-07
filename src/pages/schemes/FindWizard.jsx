@@ -206,7 +206,7 @@ export default function FindWizard() {
       {step === 0 ? (
         <div className="space-y-5">
           <div>
-            <p className="mb-2 text-sm font-medium">Gender</p>
+            <p className="mb-2 text-sm font-medium">Select your gender</p>
             <ChipSelect
               options={GENDER_OPTIONS}
               value={draft.gender || ""}
@@ -215,7 +215,7 @@ export default function FindWizard() {
             />
           </div>
           <label className="block text-sm">
-            <span className="mb-2 block font-medium">Age</span>
+            <span className="mb-2 block font-medium">Enter your age</span>
             <input
               type="number"
               min={1}
@@ -242,7 +242,7 @@ export default function FindWizard() {
       {step === 1 ? (
         <div className="space-y-5">
           <label className="block text-sm">
-            <span className="mb-2 block font-medium">State</span>
+            <span className="mb-2 block font-medium">Select your state</span>
             <select
               value={draft.state || ""}
               onChange={(e) => update({ state: e.target.value })}
@@ -257,7 +257,7 @@ export default function FindWizard() {
             </select>
           </label>
           <div>
-            <p className="mb-2 text-sm font-medium">Residence</p>
+            <p className="mb-2 text-sm font-medium">Select your residence</p>
             <ChipSelect
               options={RESIDENCE_OPTIONS}
               value={draft.residence || ""}
@@ -283,7 +283,7 @@ export default function FindWizard() {
       {step === 3 ? (
         <div className="space-y-5">
           <div>
-            <p className="mb-2 text-sm font-medium">Do you have a disability?</p>
+            <p className="mb-2 text-sm font-medium">Do you have a disability/Do you identify as a person with disability?</p>
             <ChipSelect
               options={YES_NO}
               value={draft.disability || ""}
@@ -343,7 +343,7 @@ export default function FindWizard() {
       {step === 5 ? (
         <div className="space-y-5">
           <div>
-            <p className="mb-2 text-sm font-medium">Below Poverty Line (BPL)?</p>
+            <p className="mb-2 text-sm font-medium">Belong to Below Poverty Line (BPL) category?</p>
             <ChipSelect
               options={YES_NO}
               value={draft.isBpl || ""}

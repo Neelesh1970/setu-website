@@ -14,9 +14,11 @@ export function MentalShell({
   const navigate = useNavigate()
 
   return (
-    <main className="app-shell-main bg-[#F4FBF9]">
-      <div className={`mx-auto max-w-3xl px-3 py-3 sm:px-6 sm:py-6 lg:max-w-5xl lg:px-8 ${className}`}>
-        <div className="mb-4 flex items-center justify-between gap-3">
+    <main>
+      <div
+        className={`w-full max-w-full sm:max-w-3xl md:max-w-5xl lg:max-w-7xl mx-auto px-3 py-3 sm:px-6 sm:py-6 lg:px-8 ${className}`}
+      >
+        <div className="mb-4 flex items-center justify-between">
           <button
             type="button"
             onClick={() => {
@@ -25,7 +27,7 @@ export function MentalShell({
             }}
             className="tap-target inline-flex items-center gap-2 text-sm text-[#6B7280] transition-colors hover:text-[#0F172A]"
           >
-            <ArrowLeft size={16} />
+            <ArrowLeft size={18} />
             Back
           </button>
 
@@ -42,6 +44,7 @@ export function MentalShell({
                   <span className="hidden sm:inline">My tests</span>
                 </Link>
               ) : null}
+
               {activeAction !== "bookings" ? (
                 <Link
                   to="/app/mental-health/bookings"
@@ -57,7 +60,9 @@ export function MentalShell({
         </div>
 
         {title ? (
-          <h1 className="mb-5 text-xl font-bold text-[#0F172A] sm:text-2xl">{title}</h1>
+          <h1 className="mb-5 text-xl font-bold text-[#0F172A] sm:text-2xl">
+            {title}
+          </h1>
         ) : null}
 
         {children}
