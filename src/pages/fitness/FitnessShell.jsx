@@ -19,7 +19,7 @@ export function FitnessShell({
   onBack = null,
   children,
   className = "",
-maxWidth = "max-w-full sm:max-w-3xl md:max-w-5xl lg:max-w-7xl mx-auto",
+  maxWidth = "max-w-full sm:max-w-3xl md:max-w-5xl lg:max-w-7xl mx-auto",
   showBack = true,
   showTabs = true,
   rightAction = null,
@@ -44,31 +44,36 @@ maxWidth = "max-w-full sm:max-w-3xl md:max-w-5xl lg:max-w-7xl mx-auto",
       className={showTabs ? "app-shell-main-with-tabs" : "app-shell-main"}
       style={{ backgroundColor: "#F5F7FA" }}
     >
+      {/* Enhanced Header */}
       <div
-        className="app-shell-header sticky top-0 z-30 rounded-b-2xl border-b border-emerald-900/10"
+        className="sticky top-0 z-30 rounded-b-2xl shadow-md"
         style={{ backgroundColor: FITNESS_PRIMARY }}
       >
         <div
-          className={`mx-auto flex min-h-11 items-center gap-2 ${maxWidth} px-3 py-2.5 sm:gap-3 sm:px-6 sm:py-3`}
+          className={`mx-auto flex min-h-14 items-center gap-2 ${maxWidth} px-3 py-3 sm:gap-3 sm:px-6 sm:py-4`}
         >
           {showBack ? (
             <button
               type="button"
               onClick={handleBack}
-              className="tap-target inline-flex shrink-0 items-center justify-center gap-1 rounded-lg px-2 text-sm text-white/90 hover:bg-white/10"
+              className="tap-target inline-flex shrink-0 items-center justify-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-sm font-medium text-white backdrop-blur-sm transition hover:bg-white/20"
               aria-label="Back"
             >
               <ArrowLeft size={18} />
-              <span className="hidden xs:inline sm:inline">Back</span>
+              <span className="hidden xs:inline">Back</span>
             </button>
           ) : (
             <span className="w-10 shrink-0 sm:w-16" />
           )}
-          <h1 className="min-w-0 flex-1 truncate text-center text-[15px] font-semibold text-white sm:text-lg">
+          <h1 className="min-w-0 flex-1 truncate text-center text-[17px] font-bold tracking-tight text-white sm:text-xl">
             {title || "Fitness"}
           </h1>
           <div className="flex min-w-10 shrink-0 justify-end sm:min-w-16">
-            {rightAction}
+            {rightAction ? (
+              <div className="flex items-center gap-1 rounded-full bg-white/10 px-3 py-1.5 backdrop-blur-sm">
+                {rightAction}
+              </div>
+            ) : null}
           </div>
         </div>
       </div>
@@ -81,7 +86,7 @@ maxWidth = "max-w-full sm:max-w-3xl md:max-w-5xl lg:max-w-7xl mx-auto",
 
       {showTabs && (
         <nav
-          className="app-bottom-nav fixed bottom-0 left-0 right-0 z-40 border-t border-[#E5E7EB] bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/90"
+          className="fixed bottom-0 left-0 right-0 z-40 border-t border-[#E5E7EB] bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/90"
           style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom, 0px))" }}
         >
           <div className="mx-auto grid max-w-3xl grid-cols-4 gap-0.5 px-1 pt-1.5 sm:px-2 sm:pt-2">

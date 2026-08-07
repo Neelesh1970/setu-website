@@ -95,7 +95,7 @@ import SchemesInterests from "./pages/schemes/SchemesInterests"
 import FindWizard from "./pages/schemes/FindWizard"
 import FindResults from "./pages/schemes/FindResults"
 import FindProfiles from "./pages/schemes/FindProfiles"
-import DrugHub from "./pages/drug/DrugHub"
+import DrugHub, { HealthNews } from "./pages/drug/DrugHub"
 import DrugBrowse from "./pages/drug/DrugBrowse"
 import DrugDetail from "./pages/drug/DrugDetail"
 import AyurvedaHome from "./pages/drug/AyurvedaHome"
@@ -317,6 +317,7 @@ export default function App() {
         <Route path="drug-directory/drugs" element={<DrugBrowse />} />
         <Route path="drug-directory/drugs/:idOrSlug" element={<DrugDetail />} />
         <Route path="drug-directory/ayurveda" element={<AyurvedaHome />} />
+        <Route path="/app/health-news" element={<HealthNews />} />
         <Route
           path="drug-directory/ayurveda/:idOrSlug"
           element={<AyurvedaDetail />}

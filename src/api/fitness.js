@@ -81,6 +81,49 @@ function unwrap(data) {
   return data
 }
 
+function parseBooleanLike(value) {
+  if (typeof value === "boolean") return value
+  if (typeof value === "number") return value !== 0
+  if (typeof value === "string") {
+    const trimmed = value.trim().toLowerCase()
+    if (["1", "true", "yes", "y", "favorite", "favourite", "liked", "starred"].includes(trimmed)) {
+      return true
+    }
+    if (["0", "false", "no", "n", "notfavorite", "not_favorite", "unliked", "unstarred"].includes(trimmed)) {
+      return false
+    }
+  }
+  return Boolean(value)
+}
+
+function normalizeMeal(item) {
+  if (!item || typeof item !== "object") return item
+  const favoriteValue = item.is_favorite ?? item.isFavorite ?? item.favorite ?? item.favourite ?? item.isFavourite ?? item.favorite_status ?? item.favorited ?? item.is_favorited ?? item.liked ?? item.is_liked
+  const normalized = {
+    ...item,
+    id: item.id ?? item.meal_id ?? item.mealId ?? item._id,
+    name: item.name ?? item.food_name ?? item.foodName ?? item.meal_name,
+    meal_type: item.meal_type ?? item.type ?? item.mealType ?? item.category,
+    calories: item.calories ?? item.calorie ?? item.kcal ?? 0,
+    is_favorite: parseBooleanLike(favoriteValue),
+  }
+  normalized.isFavorite = normalized.is_favorite
+  normalized.favorite = normalized.is_favorite
+  normalized.favourite = normalized.is_favorite
+  normalized.isFavourite = normalized.is_favorite
+  return normalized
+}
+
+function normalizeMealList(data) {
+  if (Array.isArray(data)) return data.map(normalizeMeal)
+  if (Array.isArray(data?.meals)) return data.meals.map(normalizeMeal)
+  if (Array.isArray(data?.items)) return data.items.map(normalizeMeal)
+  if (Array.isArray(data?.data)) return data.data.map(normalizeMeal)
+  if (Array.isArray(data?.favorites)) return data.favorites.map(normalizeMeal)
+  if (Array.isArray(data?.results)) return data.results.map(normalizeMeal)
+  return []
+}
+
 async function fitAuth(method, path, body, { token, refreshToken } = {}) {
   const { response, data } = await authFetch(fitnessUrl(path), {
     method,
@@ -331,10 +374,7 @@ export async function fetchFoodHomeDashboard(auth) {
 export async function fetchMeals(auth, params = {}) {
   const data = await fitAuth("GET", `/meals/meals${qs(params)}`, null, auth)
   const raw = unwrap(data) || data
-  if (Array.isArray(raw)) return raw
-  if (Array.isArray(raw?.meals)) return raw.meals
-  if (Array.isArray(raw?.items)) return raw.items
-  return []
+  return normalizeMealList(raw)
 }
 
 export async function fetchMeal(auth, id) {
@@ -358,9 +398,7 @@ export async function deleteMeal(auth, id) {
 export async function fetchFavoriteMeals(auth) {
   const data = await fitAuth("GET", "/meals/meals/favorites", null, auth)
   const raw = unwrap(data) || data
-  if (Array.isArray(raw)) return raw
-  if (Array.isArray(raw?.meals)) return raw.meals
-  return []
+  return normalizeMealList(raw)
 }
 
 export async function toggleMealFavorite(auth, id, favorite) {
@@ -444,17 +482,30 @@ export async function fetchRecipeSections(auth) {
   return []
 }
 
-export async function fetchHealthySwaps(auth, category = "all") {
+export async function fetchHealthySwaps(auth, category = null) {
+  const query = category && String(category).toLowerCase() !== "all" ? qs({ category }) : ""
+  const path = `/healthy-swaps${query}`
+  console.debug("fetchHealthySwaps", { category, query, path })
   const data = await fitAuth(
     "GET",
-    `/healthy-swaps${qs({ category })}`,
+    path,
     null,
     auth,
   )
+  console.debug("fetchHealthySwaps raw response", data)
   const raw = unwrap(data) || data
+  console.debug("fetchHealthySwaps unwrapped", raw)
   if (Array.isArray(raw)) return raw
   if (Array.isArray(raw?.swaps)) return raw.swaps
   if (Array.isArray(raw?.items)) return raw.items
+
+  if (raw && typeof raw === "object") {
+    const allItems = Object.values(raw).reduce((acc, value) => {
+      return Array.isArray(value) ? acc.concat(value) : acc
+    }, [])
+    if (allItems.length > 0) return allItems
+  }
+
   return []
 }
 

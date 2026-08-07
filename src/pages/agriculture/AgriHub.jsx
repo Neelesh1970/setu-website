@@ -95,12 +95,12 @@ export default function AgriHub() {
             className="relative rounded-lg p-1.5 text-white hover:bg-white/10"
             aria-label="Cart"
           >
-            <ShoppingCart size={18} />
-            {cartCount > 0 ? (
+            {/* <ShoppingCart size={18} /> */}
+            {/* {cartCount > 0 ? (
               <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#F59E0B] px-1 text-[10px] font-bold text-white">
                 {cartCount}
               </span>
-            ) : null}
+            ) : null} */}
           </Link>
         </div>
       }
@@ -124,7 +124,7 @@ export default function AgriHub() {
               <img
                 src={agriImage(banners[0].image_key)}
                 alt=""
-                className="h-40 w-full object-cover sm:h-48"
+                 className="w-full h-auto max-h-[320px] object-contain bg-white"
                 onError={(e) => {
                   e.currentTarget.style.display = "none"
                 }}
@@ -167,7 +167,7 @@ export default function AgriHub() {
             </Link>
           </div>
 
-          <div className="mb-3 flex items-center justify-between">
+          {/* <div className="mb-3 flex items-center justify-between">
             <h2 className="flex items-center gap-2 text-sm font-semibold text-[#1E2E1F]">
               <Package size={16} className="text-[#1E6E33]" />
               Farming products
@@ -207,7 +207,7 @@ export default function AgriHub() {
                 No products yet.
               </p>
             ) : null}
-          </div>
+          </div> */}
 
           <div className="mb-3 flex items-center justify-between">
             <h2 className="flex items-center gap-2 text-sm font-semibold text-[#1E2E1F]">

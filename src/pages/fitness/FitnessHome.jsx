@@ -278,6 +278,9 @@ export default function FitnessHome() {
             </div>
           </div>
 
+          {/* ============================================================== */}
+          {/* IMPROVED TODAY'S WORKOUT SECTION */}
+          {/* ============================================================== */}
           <SectionLink
             title="Today’s workout"
             to="/app/fitness/workout/daily"
@@ -286,28 +289,110 @@ export default function FitnessHome() {
             {workoutItems.length === 0 ? (
               <p className="text-sm text-[#6B7280]">No exercises added yet.</p>
             ) : (
-              <ul className="space-y-2">
-                {workoutItems.slice(0, 3).map((ex) => (
-                  <li
+              <ul className="space-y-3">
+                {workoutItems.slice(0, 3).map((ex) => {
+                  const imageSrc =
+                    ex.image_url ||
+                    ex.image ||
+                    ex.exercise?.image_url ||
+                    ex.thumbnail_url ||
+                    ex.exercise?.thumbnail_url ||
+                    null;
+                  return (
+                    <li
                     key={ex.id || ex.exercise_id || ex.exercise_name}
-                    className="flex items-center gap-3"
+                    className="
+                      group
+                      flex items-center gap-3 sm:gap-4
+                      p-3 sm:p-4
+                      rounded-2xl
+                      border border-gray-200
+                      bg-white
+                      hover:border-[#1C39BB]/20
+                      hover:shadow-lg
+                      transition-all duration-300
+                      cursor-pointer
+                    "
                   >
-                    <img
-                      src={exerciseImage(ex.image || ex.exercise_name || ex.name)}
-                      alt=""
-                      className="h-12 w-12 rounded-lg object-cover bg-[#ECFDF5]"
-                    />
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium text-[#111827]">
-                        {ex.exercise_name || ex.name}
-                      </p>
-                      <p className="text-xs text-[#6B7280]">
-                        {ex.sets ? `${ex.sets} sets` : ""}{" "}
-                        {ex.reps ? `· ${ex.reps} reps` : ""}
-                      </p>
+                    {/* Exercise Image */}
+                    <div
+                      className="
+                        h-16 w-16
+                        sm:h-20 sm:w-20
+                        md:h-24 md:w-24
+                        rounded-2xl
+                        overflow-hidden
+                        flex-shrink-0
+                        border border-[#E5E7EB]
+                        bg-gradient-to-br from-[#EEF7FF] to-[#F8FAFC]
+                      "
+                    >
+                      {imageSrc ? (
+                        <img
+                          src={exerciseImage(imageSrc)}
+                          alt=""
+                          className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        />
+                      ) : (
+                        <div className="h-full w-full flex items-center justify-center">
+                          <span className="text-2xl font-bold text-[#1C39BB]">
+                            {String(ex.exercise_name || ex.name || "💪")[0].toUpperCase()}
+                          </span>
+                        </div>
+                      )}
                     </div>
+                  
+                    {/* Details */}
+                    <div className="flex-1 min-w-0">
+                      <h3
+                        className="
+                          text-sm sm:text-base
+                          font-semibold
+                          text-gray-900
+                          truncate
+                        "
+                      >
+                        {ex.exercise_name || ex.name}
+                      </h3>
+                  
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        {ex.sets && (
+                          <span
+                            className="
+                              px-3 py-1
+                              text-xs
+                              font-medium
+                              rounded-full
+                              bg-blue-50
+                              text-blue-700
+                            "
+                          >
+                            💪 {ex.sets} Sets
+                          </span>
+                        )}
+                  
+                        {ex.reps && (
+                          <span
+                            className="
+                              px-3 py-1
+                              text-xs
+                              font-medium
+                              rounded-full
+                              bg-green-50
+                              text-green-700
+                            "
+                          >
+                            🔁 {ex.reps} Reps
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  
+                    {/* Arrow */}
+              
                   </li>
-                ))}
+                  );
+                })}
               </ul>
             )}
           </SectionLink>

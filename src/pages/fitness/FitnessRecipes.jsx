@@ -1,6 +1,6 @@
-import { useEffect, useState, useCallback, useRef } from "react"
+import { useEffect, useState, useCallback, useRef,useMemo } from "react"
 import { Link, useParams } from "react-router-dom"
-import { Heart, Loader2, Search, X, Clock, Users, Utensils, Flame, ChevronLeft } from "lucide-react"
+import { Heart, Loader2, Search, X, Clock, Users, Utensils, Flame, ChevronLeft, RefreshCw } from "lucide-react"
 import {
   fetchHealthySwaps,
   fetchRecipe,
@@ -723,31 +723,70 @@ export function FitnessSavedRecipes() {
 
 const SWAP_TABS = ["all", "carbs", "protein", "snacks", "beverages"]
 
+function normalizeSwapItem(item) {
+  return {
+    id: String(item.id || item.swap_id || item.swapId || item._id || item.title || Math.random()),
+    category: item.category || item.type || item.swap_category || item.swapCategory || "Other",
+    unhealthy: item.unhealthyItem || item.unhealthy || item.title || item.name || item.swap_title || "",
+    healthy: item.healthyAlternative || item.healthy || item.healthy_option || item.healthyOption || item.details || "",
+    imageUrl: item.imageSignedUrl || item.image_url || item.image || item.imageUrl || null,
+  }
+}
+
+function renderSwapImage(imageUrl) {
+  if (imageUrl) {
+    return (
+      <div className="overflow-hidden rounded-[28px] bg-[#F3F4F6] shadow-sm md:h-[180px] md:w-[180px] h-36 w-full md:w-auto">
+        <img src={imageUrl} alt="Swap" className="h-full w-full object-cover" />
+      </div>
+    )
+  }
+  return (
+    <div className="flex h-36 w-full items-center justify-center rounded-[28px] bg-[#F3F4F6] text-[#9CA3AF] shadow-sm md:h-[180px] md:w-[180px] md:w-auto">
+      <span className="text-3xl">🍽️</span>
+    </div>
+  )
+}
+
 export function FitnessSwaps() {
   const { ready, auth } = useFitnessGate()
   const [tab, setTab] = useState("all")
   const [swaps, setSwaps] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
+  const [refreshing, setRefreshing] = useState(false)
+
+  const loadSwaps = useCallback(async () => {
+    setError("")
+    setLoading(true)
+    try {
+      const category = tab === "all" ? undefined : tab
+      console.debug("FitnessSwaps loadSwaps", { tab, category })
+      const list = await fetchHealthySwaps(auth, category)
+      console.debug("FitnessSwaps loadSwaps result", { listLength: Array.isArray(list) ? list.length : null, listSample: Array.isArray(list) ? list.slice(0, 3) : list })
+      setSwaps(Array.isArray(list) ? list.map(normalizeSwapItem) : [])
+    } catch (err) {
+      console.error("FitnessSwaps loadSwaps error", err)
+      setError(err?.message || "Failed to load swaps")
+      setSwaps([])
+    } finally {
+      setLoading(false)
+    }
+  }, [auth, tab])
 
   useEffect(() => {
     if (!ready) return
-    let cancelled = false
-    ;(async () => {
-      setLoading(true)
-      try {
-        const list = await fetchHealthySwaps(auth, tab)
-        if (!cancelled) setSwaps(list)
-      } catch (err) {
-        if (!cancelled) setError(err.message || "Failed to load swaps")
-      } finally {
-        if (!cancelled) setLoading(false)
-      }
-    })()
-    return () => {
-      cancelled = true
+    loadSwaps()
+  }, [ready, loadSwaps])
+
+  const onRefresh = async () => {
+    setRefreshing(true)
+    try {
+      await loadSwaps()
+    } finally {
+      setRefreshing(false)
     }
-  }, [ready, auth, tab])
+  }
 
   if (!ready) {
     return (
@@ -775,33 +814,70 @@ export function FitnessSwaps() {
           </button>
         ))}
       </div>
+
       {loading ? (
         <div className="flex justify-center py-16 text-[#10B981]">
           <Loader2 className="animate-spin" size={28} />
         </div>
       ) : error ? (
-        <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
+        <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
+          <p>{error}</p>
+          <button
+            type="button"
+            onClick={onRefresh}
+            className="mt-3 inline-flex items-center rounded-full bg-white px-3 py-1 text-xs font-semibold text-[#111827] ring-1 ring-[#E5E7EB]"
+          >
+            Retry
+          </button>
+        </div>
+      ) : swaps.length === 0 ? (
+        <p className="text-sm text-[#6B7280]">No healthy swaps found.</p>
       ) : (
-        <ul className="space-y-3">
-          {swaps.map((s) => (
-            <li
-              key={s.id || s.title}
-              className="rounded-xl border border-[#E5E7EB] bg-white p-4 shadow-sm"
+        <div className="grid gap-4 md:grid-cols-2">
+          {swaps.map((swap) => (
+            <div
+              key={swap.id}
+              className="grid gap-4 rounded-3xl border border-[#E5E7EB] bg-white p-4 shadow-sm md:grid-cols-[140px_1fr]"
             >
-              <p className="font-semibold text-[#111827]">
-                {s.title || s.name || s.swap_title}
-              </p>
-              <p className="mt-1 text-sm text-[#4B5563]">
-                {s.description || s.details || s.healthy_option || ""}
-              </p>
-              {(s.instead_of || s.replace) && (
-                <p className="mt-2 text-xs text-[#6B7280]">
-                  Instead of: {s.instead_of || s.replace}
-                </p>
-              )}
-            </li>
+              {renderSwapImage(swap.imageUrl)}
+              <div className="flex min-w-0 flex-col justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <span className="rounded-full bg-[#ECFDF5] px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-[#065F46]">
+                    {swap.category || "Other"}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={onRefresh}
+                    disabled={refreshing}
+                    className={`ml-auto inline-flex h-10 w-10 items-center justify-center rounded-full bg-[#F3F4F6] text-[#111827] transition hover:bg-[#E5E7EB] ${refreshing ? "cursor-not-allowed opacity-70" : ""}`}
+                    aria-label="Refresh swaps"
+                  >
+                    <RefreshCw size={18} className={refreshing ? "animate-spin" : ""} />
+                  </button>
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="rounded-3xl border border-[#E5E7EB] bg-[#F8FAFC] p-4 shadow-sm">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#6B7280]">
+                      Current Choice
+                    </p>
+                    <p className="mt-3 text-sm font-semibold leading-6 text-[#111827]">
+                      {swap.unhealthy}
+                    </p>
+                  </div>
+                  <div className="rounded-3xl border border-[#E5E7EB] bg-[#ECFDF5] p-4 shadow-sm">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#065F46]">
+                      Better Swap
+                    </p>
+                    <p className="mt-3 text-sm font-semibold leading-6 text-[#111827]">
+                      {swap.healthy}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
           ))}
-        </ul>
+        </div>
       )}
     </FitnessShell>
   )
@@ -811,94 +887,328 @@ export function FitnessSwaps() {
 // 6. Plans
 // ------------------------------------------------------------------
 
+// ------------------------------------------------------------------
+// 6. Plans (My Plan Screen – matches React Native)
+// ------------------------------------------------------------------
+
 export function FitnessPlans() {
   const { ready, auth } = useFitnessGate()
   const [plans, setPlans] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
+  const [activeTab, setActiveTab] = useState("PENDING") // PENDING | COMPLETED
+  const [pendingDeleteId, setPendingDeleteId] = useState(null)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [showSuccess, setShowSuccess] = useState(false)
 
-  const load = async () => {
+  // ── get auth headers (same as other fitness pages) ──
+  const getAuthHeaders = () => {
+    let token = auth?.token
+    let refreshToken = auth?.refreshToken || auth?.refresh_token
+
+    if (!token) {
+      const storageKeys = ['token', 'accessToken', 'authToken', 'jwt', 'fitness_token']
+      for (const key of storageKeys) {
+        const val = localStorage.getItem(key) || sessionStorage.getItem(key)
+        if (val) { token = val; break }
+      }
+    }
+
+    if (!refreshToken) {
+      const refreshKeys = [
+        'refreshToken', 'refresh_token', 'refresh-token',
+        'x-refresh-token', 'X-REFRESH-TOKEN',
+        'fitness_refresh_token', 'fitnessRefreshToken'
+      ]
+      for (const key of refreshKeys) {
+        const val = localStorage.getItem(key) || sessionStorage.getItem(key)
+        if (val) { refreshToken = val; break }
+      }
+    }
+
+    if (!refreshToken && token) {
+      refreshToken = token // fallback: use token as refresh token
+    }
+
+    if (!token) {
+      throw new Error("Authentication required")
+    }
+
+    const headers = {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    }
+    if (refreshToken) {
+      headers["X-REFRESH-TOKEN"] = refreshToken
+    }
+    return headers
+  }
+
+  // ── fetch swap details for a given swap_id ──
+  const fetchSwapDetails = async (swapId) => {
+    const headers = getAuthHeaders()
+    const url = `${FITNESS_BASE_URL}/healthy-swaps/${swapId}`
+    const res = await fetch(url, {
+      headers,
+      method: "GET",
+    })
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}))
+      throw new Error(err.message || `HTTP ${res.status}`)
+    }
+    const data = await res.json()
+    return data.data || data
+  }
+
+  // ── load user plans + enrich with swap details ──
+  const loadPlans = useCallback(async () => {
     setLoading(true)
+    setError("")
     try {
-      setPlans(await fetchUserPlans(auth))
+      const headers = getAuthHeaders()
+      const url = `${FITNESS_BASE_URL}/user-plans-v2`
+      const res = await fetch(url, { headers })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.message || `HTTP ${res.status}`)
+      }
+      const data = await res.json()
+      const rawPlans = data?.data || data || []
+
+      // Enrich with swap details
+      const enriched = await Promise.all(
+        rawPlans.map(async (plan) => {
+          if (!plan.swap_id) return null
+          try {
+            const swap = await fetchSwapDetails(plan.swap_id)
+            return {
+              id: plan.id,
+              is_completed: plan.is_completed,
+              image_url: swap.imageSignedUrl || swap.image_url,
+              unhealthy_item: swap.unhealthyItem || swap.unhealthy,
+              healthy_alternative: swap.healthyAlternative || swap.healthy,
+              calories_saved: swap.caloriesSaved || swap.calories_saved,
+              benefits: swap.benefits || swap.benefit,
+            }
+          } catch {
+            return null
+          }
+        })
+      )
+
+      setPlans(enriched.filter(Boolean))
     } catch (err) {
+      console.error("Failed to load plans:", err)
       setError(err.message || "Failed to load plans")
     } finally {
       setLoading(false)
     }
-  }
+  }, [auth])
 
   useEffect(() => {
     if (!ready) return
-    load()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ready, auth?.token])
+    loadPlans()
+  }, [ready, loadPlans])
+
+  // ── mark a plan as completed ──
+  const markAsCompleted = async (planId) => {
+    try {
+      const headers = getAuthHeaders()
+      const url = `${FITNESS_BASE_URL}/user-plans-v2/${planId}/status`
+      const res = await fetch(url, {
+        method: "PATCH",
+        headers,
+        body: JSON.stringify({ isCompleted: true }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.message || `HTTP ${res.status}`)
+      }
+      setPlans(prev => prev.map(p => p.id === planId ? { ...p, is_completed: true } : p))
+    } catch (err) {
+      console.error("Failed to mark complete:", err)
+      setError(err.message || "Failed to mark plan as complete")
+    }
+  }
+
+  // ── delete a plan ──
+  const performDeletePlan = async (planId) => {
+    try {
+      const headers = getAuthHeaders()
+      const url = `${FITNESS_BASE_URL}/user-plans-v2/${planId}`
+      const res = await fetch(url, { method: "DELETE", headers })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.message || `HTTP ${res.status}`)
+      }
+      setPlans(prev => prev.filter(p => p.id !== planId))
+      setShowDeleteConfirm(false)
+      setPendingDeleteId(null)
+      setShowSuccess(true)
+      setTimeout(() => setShowSuccess(false), 2500)
+    } catch (err) {
+      console.error("Failed to delete plan:", err)
+      setError(err.message || "Failed to delete plan")
+    }
+  }
+
+  // ── filter by tab ──
+  const filteredPlans = useMemo(() => {
+    return plans.filter(p => activeTab === "PENDING" ? !p.is_completed : p.is_completed)
+  }, [plans, activeTab])
+
+  // ── render item ──
+  const renderPlanItem = (plan) => (
+    <div key={plan.id} className="flex items-center gap-4 py-4 border-b border-gray-100 last:border-0">
+      <img
+        src={plan.image_url || '/placeholder.png'}
+        alt={plan.unhealthy_item}
+        className="w-16 h-16 rounded-lg object-cover bg-gray-100 flex-shrink-0"
+      />
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-bold text-gray-800 truncate">
+          Less Healthy: {plan.unhealthy_item}
+        </p>
+        <p className="text-sm text-gray-600 truncate">
+          Switch to: {plan.healthy_alternative}
+        </p>
+        <p className="text-sm text-green-600 font-medium">
+          Calories Saved: {plan.calories_saved || 0} kcal
+        </p>
+        {plan.benefits && (
+          <p className="text-sm text-gray-500 truncate">
+            Healthy Tip: {plan.benefits}
+          </p>
+        )}
+      </div>
+      <div className="flex flex-col items-center gap-2 flex-shrink-0">
+        {plan.is_completed && (
+          <CheckCircle size={20} className="text-green-600" />
+        )}
+        {!plan.is_completed && (
+          <button
+            onClick={() => markAsCompleted(plan.id)}
+            className="text-xs font-semibold text-white bg-green-600 px-3 py-1.5 rounded-md hover:bg-green-700 transition"
+          >
+            Mark Complete
+          </button>
+        )}
+        <button
+          onClick={() => {
+            setPendingDeleteId(plan.id)
+            setShowDeleteConfirm(true)
+          }}
+          className="text-red-600 hover:text-red-800 transition"
+        >
+          <Trash2 size={18} />
+        </button>
+      </div>
+    </div>
+  )
 
   if (!ready) {
     return (
-      <FitnessShell title="My plans" backTo="/app/fitness/food" showTabs={false}>
+      <FitnessShell title="My Plans" backTo="/app/fitness/food" showTabs={false}>
         <FitnessGateLoader />
       </FitnessShell>
     )
   }
 
   return (
-    <FitnessShell title="My plans" backTo="/app/fitness/food" showTabs={false}>
-      {loading ? (
-        <div className="flex justify-center py-16 text-[#10B981]">
-          <Loader2 className="animate-spin" size={28} />
+    <FitnessShell
+      title="Your Diet Plans"
+      backTo="/app/fitness/food"
+      showTabs={false}
+      rightAction={
+        <button
+          onClick={loadPlans}
+          className="rounded-lg p-1.5 text-white/90 hover:bg-white/10"
+          aria-label="Refresh"
+        >
+          <RefreshCw size={18} />
+        </button>
+      }
+    >
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-4">
+        {/* Tabs */}
+        <div className="flex border-b border-gray-200 mb-4">
+          <button
+            onClick={() => setActiveTab("PENDING")}
+            className={`flex-1 py-2 text-sm font-semibold transition-colors border-b-2 ${
+              activeTab === "PENDING"
+                ? "border-green-600 text-green-600"
+                : "border-transparent text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            Pending
+          </button>
+          <button
+            onClick={() => setActiveTab("COMPLETED")}
+            className={`flex-1 py-2 text-sm font-semibold transition-colors border-b-2 ${
+              activeTab === "COMPLETED"
+                ? "border-green-600 text-green-600"
+                : "border-transparent text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            Completed
+          </button>
         </div>
-      ) : error ? (
-        <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
-      ) : plans.length === 0 ? (
-        <p className="text-center text-sm text-[#6B7280]">No plans yet.</p>
-      ) : (
-        <ul className="space-y-3">
-          {plans.map((p) => (
-            <li
-              key={p.id}
-              className="rounded-xl border border-[#E5E7EB] bg-white p-4 shadow-sm"
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="font-semibold text-[#111827]">
-                    {p.title || p.name || `Plan #${p.id}`}
-                  </p>
-                  <p className="mt-1 text-xs capitalize text-[#6B7280]">
-                    {p.status || "active"}
-                  </p>
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      await patchUserPlanStatus(
-                        auth,
-                        p.id,
-                        p.status === "active" ? "paused" : "active",
-                      )
-                      await load()
-                    }}
-                    className="text-xs font-semibold text-[#10B981]"
-                  >
-                    Toggle
-                  </button>
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      await deleteUserPlan(auth, p.id)
-                      await load()
-                    }}
-                    className="text-xs font-semibold text-red-600"
-                  >
-                    Delete
-                  </button>
+
+        {loading ? (
+          <div className="flex justify-center py-16 text-green-600">
+            <Loader2 className="animate-spin" size={28} />
+          </div>
+        ) : error ? (
+          <div className="bg-red-50 text-red-700 p-4 rounded-lg">{error}</div>
+        ) : filteredPlans.length === 0 ? (
+          <p className="text-center text-gray-500 py-8">No diet plans yet.</p>
+        ) : (
+          <div className="space-y-1">
+            {filteredPlans.map(renderPlanItem)}
+          </div>
+        )}
+
+        {/* Delete Confirmation Modal */}
+        {showDeleteConfirm && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-xl">
+              <div className="flex justify-center mb-4">
+                <div className="w-14 h-14 bg-red-100 rounded-full flex items-center justify-center">
+                  <Trash2 size={28} className="text-red-600" />
                 </div>
               </div>
-            </li>
-          ))}
-        </ul>
-      )}
+              <h3 className="text-lg font-bold text-center text-gray-800">Delete Plan</h3>
+              <p className="text-sm text-center text-gray-600 mt-2">
+                Are you sure you want to delete this plan?
+              </p>
+              <div className="flex gap-3 mt-6">
+                <button
+                  onClick={() => {
+                    setShowDeleteConfirm(false)
+                    setPendingDeleteId(null)
+                  }}
+                  className="flex-1 py-2 rounded-xl border border-gray-300 text-gray-700 font-medium hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => pendingDeleteId && performDeletePlan(pendingDeleteId)}
+                  className="flex-1 py-2 rounded-xl bg-red-600 text-white font-medium hover:bg-red-700"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Success Toast */}
+        {showSuccess && (
+          <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-green-600 text-white px-6 py-3 rounded-xl shadow-lg flex items-center gap-2 z-50">
+            <CheckCircle size={20} /> Plan deleted successfully
+          </div>
+        )}
+      </div>
     </FitnessShell>
   )
 }
