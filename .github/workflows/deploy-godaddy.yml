@@ -117,7 +117,7 @@ jobs:
             echo "::error::FTP login failed (530). Fix GitHub Secrets on THIS repo:"
             echo "  Settings → Secrets and variables → Actions"
             echo "  Required: FTP_SERVER=184.168.116.6, FTP_USERNAME (cPanel login), FTP_PASSWORD (cPanel password)"
-            echo "  Secrets do NOT copy when you move or fork the repo — re-add them on Sushantlode/setu_website."
+            echo "  Secrets do NOT copy when you move or fork the repo — re-add them on Neelesh1970/setu-website."
             exit 1
           fi
           echo "OK: FTP credentials work for public_html/setuai.com/"
@@ -185,34 +185,8 @@ jobs:
         env:
           CLEAN_SLATE: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.clean_slate == 'true' }}
         run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y lftp
-          echo "Deploying dist/ → public_html/setuai.com/ (clean_slate=$CLEAN_SLATE)"
-          export HOME="$RUNNER_TEMP"
-          NETRC="$HOME/.netrc"
-          printf 'machine %s\nlogin %s\npassword %s\n' \
-            "$FTP_SERVER" "$FTP_USERNAME" "$FTP_PASSWORD" > "$NETRC"
-          chmod 600 "$NETRC"
-          DELETE_OPT=""
-          if [ "$CLEAN_SLATE" = "true" ]; then
-            DELETE_OPT="--delete"
-          fi
-          lftp "ftps://$FTP_SERVER:21" <<LFTP_EOF
-          set ssl:verify-certificate no
-          set ftp:ssl-force true
-          set ftp:ssl-protect-data true
-          set cmd:fail-exit yes
-          cd public_html/setuai.com
-          lcd ./dist
-          mirror -R --parallel=4 --verbose $DELETE_OPT \
-            --exclude-glob .git* \
-            --exclude-glob **/node_modules/** \
-            --exclude-glob **/assets/public/khatima/originals/** \
-            --exclude-glob DEPLOY-CHECKLIST.txt
-          bye
-          LFTP_EOF
-          rm -f "$NETRC"
-          echo "OK: FTPS upload finished"
+          chmod +x scripts/deploy-godaddy-ci.sh
+          CLEAN_SLATE="$CLEAN_SLATE" scripts/deploy-godaddy-ci.sh
 
       - name: Verify live site
         run: |

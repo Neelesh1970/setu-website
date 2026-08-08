@@ -52,11 +52,16 @@ export HOME
 HOME="$(dirname "$NETRC")"
 mv "$NETRC" "$HOME/.netrc"
 
-lftp "ftps://$FTP_SERVER:21" <<LFTP_EOF
+lftp <<LFTP_EOF
+set net:timeout 90
+set net:max-retries 3
 set ssl:verify-certificate no
 set ftp:ssl-force true
 set ftp:ssl-protect-data true
+set ftp:ssl-protect-list true
+set ftp:passive-mode true
 set cmd:fail-exit yes
+open ftp://${FTP_SERVER}:21
 cd public_html/setuai.com
 lcd $ROOT/dist
 mirror -R --parallel=4 --verbose $DELETE_OPT \
