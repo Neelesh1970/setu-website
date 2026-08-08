@@ -21,7 +21,7 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 120
 
     steps:
       - name: Checkout
@@ -184,9 +184,10 @@ jobs:
       - name: Deploy to GoDaddy via FTPS
         env:
           CLEAN_SLATE: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.clean_slate == 'true' }}
+          DEPLOY_PARALLEL: "8"
         run: |
           chmod +x scripts/deploy-godaddy-ci.sh
-          CLEAN_SLATE="$CLEAN_SLATE" scripts/deploy-godaddy-ci.sh
+          CLEAN_SLATE="$CLEAN_SLATE" DEPLOY_PARALLEL="$DEPLOY_PARALLEL" scripts/deploy-godaddy-ci.sh
 
       - name: Verify live site
         run: |
