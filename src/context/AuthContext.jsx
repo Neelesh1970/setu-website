@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react"
 import { checkUserExists, fetchUserProfile } from "../api/auth"
-import { isJwtExpired, refreshVleToken } from "../api/roleAuth"
+import { isJwtExpired, refreshSuperAdminToken, refreshVleToken } from "../api/roleAuth"
 
 const STORAGE_KEY = "setu_auth_session"
 const API_HOST_KEY = "setu_api_host"
@@ -68,9 +68,15 @@ function normalizeSession(payload) {
     vle_id: payload.vle_id ? String(payload.vle_id) : "",
     vlePublicId: payload.vlePublicId || "",
     admin_id: payload.admin_id ? String(payload.admin_id) : "",
+    coordinatorId: payload.coordinatorId ? String(payload.coordinatorId) : "",
+    userId: payload.userId ? String(payload.userId) : "",
+    employeeCode: payload.employeeCode || "",
+    assignedDistricts: payload.assignedDistricts || [],
+    assignedDistrictDetails: payload.assignedDistrictDetails || [],
     roles: payload.roles || [],
     scope: payload.scope || "",
     allowedModules: payload.allowedModules || [],
+    isSuperAdmin: payload.isSuperAdmin === true,
   }
 }
 
@@ -80,6 +86,9 @@ function sessionIsAuthenticated(session) {
     return Boolean(session.vle_id || session.vlePublicId)
   }
   if (session.accountType === "district_coordinator") {
+    return Boolean(session.coordinatorId || session.admin_id)
+  }
+  if (session.accountType === "super_admin") {
     return Boolean(session.admin_id)
   }
   return Boolean(session.user_id)
@@ -125,7 +134,11 @@ export function AuthProvider({ children }) {
         return
       }
 
-      if (stored.accountType === "vle" || stored.accountType === "district_coordinator") {
+      if (
+        stored.accountType === "vle" ||
+        stored.accountType === "district_coordinator" ||
+        stored.accountType === "super_admin"
+      ) {
         let nextSession = normalizeSession(stored)
         if (
           stored.accountType === "vle" &&
@@ -134,6 +147,24 @@ export function AuthProvider({ children }) {
         ) {
           try {
             const tokens = await refreshVleToken(stored.refreshToken)
+            nextSession = normalizeSession({ ...stored, ...tokens })
+          } catch {
+            if (!cancelled) {
+              setSession(null)
+              writeStoredSession(null)
+              setLoading(false)
+              setBootChecked(true)
+            }
+            return
+          }
+        }
+        if (
+          stored.accountType === "super_admin" &&
+          stored.refreshToken &&
+          isJwtExpired(stored.token)
+        ) {
+          try {
+            const tokens = await refreshSuperAdminToken(stored.refreshToken)
             nextSession = normalizeSession({ ...stored, ...tokens })
           } catch {
             if (!cancelled) {

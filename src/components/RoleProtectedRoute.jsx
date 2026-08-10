@@ -26,6 +26,7 @@ export default function RoleProtectedRoute({ allow, children }) {
 
   const type = session?.accountType || "user"
   if (!allowed.includes(type)) {
+    if (type === "super_admin") return <Navigate to="/super-admin/coordinators" replace />
     if (type === "vle") return <Navigate to="/vle/dashboard" replace />
     if (type === "district_coordinator") {
       return <Navigate to="/coordinator/dashboard" replace />

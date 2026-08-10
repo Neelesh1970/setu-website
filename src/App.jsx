@@ -16,7 +16,15 @@ import VleRewardsPage from "./pages/vle/VleRewardsPage"
 import VleMarketingPage from "./pages/vle/VleMarketingPage"
 import VleSupportPage from "./pages/vle/VleSupportPage"
 import VleLayout from "./layouts/VleLayout"
+import SuperAdminLayout from "./layouts/SuperAdminLayout"
+import SuperAdminCoordinatorsPage from "./pages/superadmin/SuperAdminCoordinatorsPage"
+import CoordinatorLayout from "./layouts/CoordinatorLayout"
 import CoordinatorDashboardPage from "./pages/coordinator/CoordinatorDashboardPage"
+import CoordinatorLeaderboardPage from "./pages/coordinator/CoordinatorLeaderboardPage"
+import CoordinatorVlePage from "./pages/coordinator/CoordinatorVlePage"
+import CoordinatorTicketsPage from "./pages/coordinator/CoordinatorTicketsPage"
+import CoordinatorReportsPage from "./pages/coordinator/CoordinatorReportsPage"
+import CoordinatorCampaignsPage from "./pages/coordinator/CoordinatorCampaignsPage"
 import RoleProtectedRoute from "./components/RoleProtectedRoute"
 import AppLayout from "./layouts/AppLayout"
 import AppDashboard from "./pages/AppDashboard"
@@ -192,13 +200,32 @@ export default function App() {
         <Route path="leaderboard" element={<VleLeaderboardPage />} />
       </Route>
       <Route
-        path="/coordinator/dashboard"
+        path="/super-admin"
         element={
-          <RoleProtectedRoute allow="district_coordinator">
-            <CoordinatorDashboardPage />
+          <RoleProtectedRoute allow="super_admin">
+            <SuperAdminLayout />
           </RoleProtectedRoute>
         }
-      />
+      >
+        <Route index element={<SuperAdminCoordinatorsPage />} />
+        <Route path="coordinators" element={<SuperAdminCoordinatorsPage />} />
+      </Route>
+
+      <Route
+        path="/coordinator"
+        element={
+          <RoleProtectedRoute allow="district_coordinator">
+            <CoordinatorLayout />
+          </RoleProtectedRoute>
+        }
+      >
+        <Route path="dashboard" element={<CoordinatorDashboardPage />} />
+        <Route path="vle" element={<CoordinatorVlePage />} />
+        <Route path="leaderboard" element={<CoordinatorLeaderboardPage />} />
+        <Route path="tickets" element={<CoordinatorTicketsPage />} />
+        <Route path="reports" element={<CoordinatorReportsPage />} />
+        <Route path="campaigns" element={<CoordinatorCampaignsPage />} />
+      </Route>
 
       <Route
         path="/app"

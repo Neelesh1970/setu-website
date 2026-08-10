@@ -13,11 +13,11 @@ function isLocalServiceHost(host) {
   return /localhost|127\.0\.0\.1|:7005\b|:7035\b/.test(host)
 }
 
-/** VLE dashboard service — local strips /vle prefix (port 7035). */
+/** VLE microservice API only — do not proxy /vle/dashboard etc. (SPA routes). */
 function vleProxy(vleHost) {
   const local = isLocalServiceHost(vleHost)
   return {
-    '/vle': {
+    '/vle/api': {
       target: vleHost,
       changeOrigin: true,
       secure: !local,
@@ -64,7 +64,7 @@ export default defineConfig(({ mode }) => {
     console.info(`[vite] SETU-AUTH proxy → ${authHost} (strips /auth prefix)`)
   }
   if (mode === 'development' && isLocalServiceHost(vleHost)) {
-    console.info(`[vite] SETU-VLE proxy → ${vleHost} (strips /vle prefix)`)
+    console.info(`[vite] SETU-VLE proxy → ${vleHost} (/vle/api only; SPA routes like /vle/dashboard stay on Vite)`)
   }
 
   return {

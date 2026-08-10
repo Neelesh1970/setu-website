@@ -8,12 +8,10 @@ import {
   sendRegistrationOtp,
   verifyRegistrationOtp,
 } from "../api/auth"
-import {
-  loginDistrictCoordinator,
-  loginVle,
-  registerDistrictCoordinator,
-  registerVle,
-} from "../api/roleAuth"
+import { loginCoordinator } from "../api/coordinatorApi"
+import { loginSuperAdmin, loginVle, registerVle } from "../api/roleAuth"
+import VleLocationFields from "../components/coordinator/VleLocationFields"
+import PasswordInput from "../components/PasswordInput"
 import { useAuth } from "../context/AuthContext"
 
 const OTP_LENGTH = 6
@@ -24,7 +22,12 @@ const ACCOUNT_ROLES = [
   {
     value: "district_coordinator",
     label: "District Coordinator",
-    hint: "Email + password — regional admin",
+    hint: "Email or mobile + password — district portal",
+  },
+  {
+    value: "super_admin",
+    label: "Super Admin",
+    hint: "Email + password — manage district coordinators",
   },
 ]
 
@@ -50,6 +53,12 @@ export default function LoginPage() {
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
   const [vleId, setVleId] = useState("")
+  const [vleDistrictId, setVleDistrictId] = useState("")
+  const [vleDistrictLabel, setVleDistrictLabel] = useState("")
+  const [vleState, setVleState] = useState("")
+  const [vleCity, setVleCity] = useState("")
+  const [vleVillage, setVleVillage] = useState("")
+  const [vlePincode, setVlePincode] = useState("")
 
   const notice = location.state?.notice || ""
 
@@ -74,6 +83,9 @@ export default function LoginPage() {
     if (type === "vle") return <Navigate to="/vle/dashboard" replace />
     if (type === "district_coordinator") {
       return <Navigate to="/coordinator/dashboard" replace />
+    }
+    if (type === "super_admin") {
+      return <Navigate to="/super-admin/coordinators" replace />
     }
     return <Navigate to={redirectTo} replace />
   }
@@ -156,6 +168,18 @@ export default function LoginPage() {
         setError("Name is required.")
         return
       }
+      if (!vleDistrictId) {
+        setError("Enter a valid pincode — district could not be detected.")
+        return
+      }
+      if (!/^\d{6}$/.test(vlePincode)) {
+        setError("Enter a valid 6-digit pincode.")
+        return
+      }
+      if (!vleCity.trim()) {
+        setError("City / taluka is required.")
+        return
+      }
     } else if (!vleId.trim()) {
       setError("VLE ID is required.")
       return
@@ -163,15 +187,20 @@ export default function LoginPage() {
 
     setLoading(true)
     try {
-      const vleSession = isRegister
+      const vleResult = isRegister
         ? await registerVle({
             name: name.trim(),
             phone: mobile.trim(),
             email: email.trim() || undefined,
             password,
+            district_id: vleDistrictId,
+            state: vleState,
+            city: vleCity.trim(),
+            village: vleVillage.trim() || undefined,
+            pincode: vlePincode || undefined,
           })
         : await loginVle({ vleId: vleId.trim(), password })
-      login(vleSession)
+      login(vleResult)
       navigate("/vle/dashboard", { replace: true })
     } catch (err) {
       setError(err.message || "VLE authentication failed.")
@@ -183,37 +212,48 @@ export default function LoginPage() {
   const handleCoordinatorSubmit = async (e) => {
     e.preventDefault()
     setError("")
-    if (!email.trim() || !password) {
-      setError("Email and password are required.")
+    if (isRegister) {
+      setError(
+        "District Coordinator accounts are created by a Super Admin. Sign in with your assigned credentials.",
+      )
       return
     }
-    if (isRegister) {
-      if (password !== confirmPassword) {
-        setError("Passwords do not match.")
-        return
-      }
-      if (!name.trim()) {
-        setError("Name is required.")
-        return
-      }
-      if (!/^[6-9][0-9]{9}$/.test(mobile.trim())) {
-        setError("Enter a valid 10-digit mobile number.")
-        return
-      }
+    const trimmedEmail = email.trim()
+    const trimmedMobile = mobile.trim()
+    if ((!trimmedEmail && !trimmedMobile) || !password) {
+      setError("Email or mobile, and password are required.")
+      return
     }
 
     setLoading(true)
     try {
-      const adminSession = isRegister
-        ? await registerDistrictCoordinator({
-            name: name.trim(),
-            email: email.trim(),
-            mobile: mobile.trim(),
-            password,
-          })
-        : await loginDistrictCoordinator({ email: email.trim(), password })
-      login(adminSession)
+      const coordinatorSession = await loginCoordinator({
+        email: trimmedEmail || undefined,
+        phone: trimmedMobile || undefined,
+        password,
+      })
+      login(coordinatorSession)
       navigate("/coordinator/dashboard", { replace: true })
+    } catch (err) {
+      setError(err.message || "Authentication failed.")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleSuperAdminSubmit = async (e) => {
+    e.preventDefault()
+    setError("")
+    const trimmedEmail = email.trim()
+    if (!trimmedEmail || !password) {
+      setError("Email and password are required.")
+      return
+    }
+    setLoading(true)
+    try {
+      const adminSession = await loginSuperAdmin({ email: trimmedEmail, password })
+      login(adminSession)
+      navigate("/super-admin/coordinators", { replace: true })
     } catch (err) {
       setError(err.message || "Authentication failed.")
     } finally {
@@ -403,6 +443,34 @@ export default function LoginPage() {
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                     />
+                    <VleLocationFields
+                      state={vleState}
+                      city={vleCity}
+                      village={vleVillage}
+                      pincode={vlePincode}
+                      districtLabel={vleDistrictLabel}
+                      onChange={(patch) => {
+                        if (patch.state != null) setVleState(patch.state)
+                        if (patch.city != null) setVleCity(patch.city)
+                        if (patch.village != null) setVleVillage(patch.village)
+                        if (patch.pincode != null) {
+                          setVlePincode(patch.pincode)
+                          if (patch.pincode.length < 6) {
+                            setVleDistrictId("")
+                            setVleDistrictLabel("")
+                          }
+                        }
+                      }}
+                      onDistrictMatch={(districtId, district) => {
+                        setVleDistrictId(districtId || "")
+                        setVleDistrictLabel(district?.label || "")
+                        if (district?.state) setVleState(district.state)
+                      }}
+                    />
+                    <p className="rounded-xl border border-[#EEF3FF] bg-[#F8FAFF] px-3 py-2.5 text-xs text-setu-muted">
+                      Register with your pincode — your district is set automatically and you can
+                      sign in immediately.
+                    </p>
                   </>
                 ) : (
                   <input
@@ -412,17 +480,13 @@ export default function LoginPage() {
                     onChange={(e) => setVleId(e.target.value.toUpperCase())}
                   />
                 )}
-                <input
-                  type="password"
-                  className="w-full rounded-xl border border-[#D2DEFF] px-3 py-3 outline-none focus:border-[#1C39BB]"
+                <PasswordInput
                   placeholder="Password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                 />
                 {isRegister && (
-                  <input
-                    type="password"
-                    className="w-full rounded-xl border border-[#D2DEFF] px-3 py-3 outline-none focus:border-[#1C39BB]"
+                  <PasswordInput
                     placeholder="Confirm password"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
@@ -441,14 +505,28 @@ export default function LoginPage() {
             )}
 
             {accountRole === "district_coordinator" && (
-              <form onSubmit={handleCoordinatorSubmit} className="space-y-4">
-                {isRegister && (
-                  <>
+              <>
+                {isRegister ? (
+                  <div className="space-y-4">
+                    <p className="rounded-xl bg-[#EEF3FF] px-4 py-3 text-sm text-setu-charcoal">
+                      District Coordinator profiles are created by a Super Admin after you
+                      register as a SETU user. Use your assigned email or mobile to sign in.
+                    </p>
+                    <Link
+                      to="/login"
+                      className="tap-target inline-flex w-full items-center justify-center rounded-full bg-[#1C39BB] px-5 py-3 text-sm font-semibold text-white"
+                    >
+                      Go to sign in
+                    </Link>
+                  </div>
+                ) : (
+                  <form onSubmit={handleCoordinatorSubmit} className="space-y-4">
                     <input
+                      type="email"
                       className="w-full rounded-xl border border-[#D2DEFF] px-3 py-3 outline-none focus:border-[#1C39BB]"
-                      placeholder="Full name"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
+                      placeholder="Email (optional if mobile provided)"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
                     />
                     <div className="flex overflow-hidden rounded-xl border border-[#D2DEFF] focus-within:border-[#1C39BB]">
                       <span className="flex items-center bg-[#EEF3FF] px-3 text-sm text-[#1C39BB]">
@@ -460,44 +538,71 @@ export default function LoginPage() {
                         value={mobile}
                         onChange={(e) => setMobile(e.target.value.replace(/\D/g, ""))}
                         className="w-full px-3 py-3 outline-none"
-                        placeholder="Mobile number"
+                        placeholder="Mobile (optional if email provided)"
                       />
                     </div>
-                  </>
+                    <PasswordInput
+                      placeholder="Password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                    />
+                    {error && <p className="text-sm text-red-600">{error}</p>}
+                    <button
+                      type="submit"
+                      disabled={loading}
+                      className="tap-target inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#1C39BB] px-5 py-3 text-sm font-semibold text-white disabled:opacity-60"
+                    >
+                      {loading && <Loader2 size={16} className="animate-spin" />}
+                      Sign in to coordinator portal
+                    </button>
+                  </form>
                 )}
-                <input
-                  type="email"
-                  className="w-full rounded-xl border border-[#D2DEFF] px-3 py-3 outline-none focus:border-[#1C39BB]"
-                  placeholder="Email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                />
-                <input
-                  type="password"
-                  className="w-full rounded-xl border border-[#D2DEFF] px-3 py-3 outline-none focus:border-[#1C39BB]"
-                  placeholder="Password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                />
-                {isRegister && (
-                  <input
-                    type="password"
-                    className="w-full rounded-xl border border-[#D2DEFF] px-3 py-3 outline-none focus:border-[#1C39BB]"
-                    placeholder="Confirm password"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                  />
+              </>
+            )}
+
+            {accountRole === "super_admin" && (
+              <>
+                {isRegister ? (
+                  <div className="space-y-4">
+                    <p className="rounded-xl bg-[#EEF3FF] px-4 py-3 text-sm text-setu-charcoal">
+                      Super Admin accounts are provisioned internally. Sign in with your assigned
+                      email and password.
+                    </p>
+                    <Link
+                      to="/login"
+                      className="tap-target inline-flex w-full items-center justify-center rounded-full bg-[#1C39BB] px-5 py-3 text-sm font-semibold text-white"
+                    >
+                      Go to sign in
+                    </Link>
+                  </div>
+                ) : (
+                  <form onSubmit={handleSuperAdminSubmit} className="space-y-4">
+                    <input
+                      required
+                      type="email"
+                      className="w-full rounded-xl border border-[#D2DEFF] px-3 py-3 outline-none focus:border-[#1C39BB]"
+                      placeholder="Super Admin email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                    />
+                    <PasswordInput
+                      required
+                      placeholder="Password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                    />
+                    {error && <p className="text-sm text-red-600">{error}</p>}
+                    <button
+                      type="submit"
+                      disabled={loading}
+                      className="tap-target inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#1C39BB] px-5 py-3 text-sm font-semibold text-white disabled:opacity-60"
+                    >
+                      {loading && <Loader2 size={16} className="animate-spin" />}
+                      Sign in to Super Admin portal
+                    </button>
+                  </form>
                 )}
-                {error && <p className="text-sm text-red-600">{error}</p>}
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="tap-target inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#1C39BB] px-5 py-3 text-sm font-semibold text-white disabled:opacity-60"
-                >
-                  {loading && <Loader2 size={16} className="animate-spin" />}
-                  {isRegister ? "Register as coordinator" : "Sign in"}
-                </button>
-              </form>
+              </>
             )}
 
             <div className="mt-6 rounded-2xl bg-setu-sand/70 p-4">
@@ -509,9 +614,13 @@ export default function LoginPage() {
                       ? "Verify mobile, add your name, and access the SETU web app."
                       : "Sign in with the same mobile OTP as the SETU app.")}
                   {accountRole === "vle" &&
-                    "VLE portal only — register users, track commissions, and manage wallet."}
+                    (isRegister
+                      ? "Register as a VLE in your district with pincode — sign in right away with your VLE ID."
+                      : "VLE portal — register users, track commissions, and manage wallet.")}
                   {accountRole === "district_coordinator" &&
-                    "District-level access to reports and government scheme modules."}
+                    "Manage VLEs, view district metrics, handle support tickets, and run campaigns in your assigned districts."}
+                  {accountRole === "super_admin" &&
+                    "Create District Coordinator profiles, assign territories, and activate or deactivate coordinator access."}
                 </p>
               </div>
             </div>

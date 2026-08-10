@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import { Link, NavLink, Outlet, useNavigate } from "react-router-dom"
 import {
+  BarChart3,
   Headphones,
   Home,
   LayoutGrid,
@@ -8,30 +9,27 @@ import {
   Megaphone,
   Menu,
   MoreHorizontal,
-  Search,
   Trophy,
-  UserPlus,
-  Wallet,
+  UserCheck,
   X,
 } from "lucide-react"
 import { assets } from "../data/content"
 import { useAuth } from "../context/AuthContext"
-const VLE_TABS = [
-  { id: "dashboard", label: "Dashboard", to: "/vle/dashboard", end: true, Icon: Home },
-  { id: "register", label: "Register", to: "/vle/register-user", Icon: UserPlus },
-  { id: "customers", label: "Customers", to: "/vle/customers", Icon: Search },
-  { id: "wallet", label: "Wallet", to: "/vle/wallet", Icon: Wallet },
-  { id: "rewards", label: "Rewards", to: "/vle/rewards", Icon: Trophy },
+
+const COORDINATOR_TABS = [
+  { id: "dashboard", label: "Dashboard", to: "/coordinator/dashboard", end: true, Icon: Home },
+  { id: "vle", label: "VLE", to: "/coordinator/vle", Icon: UserCheck },
+  { id: "leaderboard", label: "Leaderboard", to: "/coordinator/leaderboard", Icon: Trophy },
+  { id: "tickets", label: "Tickets", to: "/coordinator/tickets", Icon: Headphones },
+  { id: "reports", label: "Reports", to: "/coordinator/reports", Icon: BarChart3 },
 ]
 
-const VLE_MORE_LINKS = [
-  { label: "Marketing Kit", to: "/vle/marketing", Icon: Megaphone },
-  { label: "Support", to: "/vle/support", Icon: Headphones },
-  { label: "Leaderboard", to: "/vle/leaderboard", Icon: Trophy },
+const COORDINATOR_MORE = [
+  { label: "Campaigns", to: "/coordinator/campaigns", Icon: Megaphone },
   { label: "Website", to: "/", Icon: LayoutGrid },
 ]
 
-export default function VleLayout() {
+export default function CoordinatorLayout() {
   const { session, logout } = useAuth()
   const navigate = useNavigate()
   const [menuOpen, setMenuOpen] = useState(false)
@@ -45,7 +43,7 @@ export default function VleLayout() {
 
     const syncHeaderHeight = () => {
       document.documentElement.style.setProperty(
-        "--vle-header-height",
+        "--coordinator-header-height",
         `${header.offsetHeight}px`,
       )
     }
@@ -77,8 +75,9 @@ export default function VleLayout() {
     navigate("/")
   }
 
-  const displayName = session?.name || session?.vlePublicId || "VLE Portal"
-  const vleId = session?.vlePublicId || session?.vle_id || ""
+  const displayName = session?.name || "District Coordinator"
+  const employeeCode = session?.employeeCode || ""
+  const districtCount = session?.assignedDistricts?.length || 0
 
   const linkClass = ({ isActive }) =>
     `inline-flex items-center gap-1.5 rounded-full border px-2.5 py-2 text-sm font-medium transition-colors ${
@@ -117,8 +116,8 @@ export default function VleLayout() {
       >
         <div className="mx-auto flex max-w-7xl items-center gap-2 px-3 py-2 sm:gap-3 sm:px-6 sm:py-3 lg:px-8">
           <Link
-            to="/vle/dashboard"
-            className="flex min-w-0 shrink-0 items-center gap-2 sm:gap-3 lg:max-w-[14rem]"
+            to="/coordinator/dashboard"
+            className="flex min-w-0 shrink-0 items-center gap-2 sm:gap-3 lg:max-w-[16rem]"
           >
             <img
               src={assets.logo}
@@ -127,19 +126,18 @@ export default function VleLayout() {
             />
             <div className="min-w-0">
               <p className="truncate text-sm font-medium text-setu-sand">{displayName}</p>
-              {vleId ? (
-                <p className="truncate text-[11px] text-setu-sand/70 sm:text-xs">VLE · {vleId}</p>
-              ) : (
-                <p className="truncate text-[11px] text-setu-sand/70 sm:text-xs">VLE Portal</p>
-              )}
+              <p className="truncate text-[11px] text-setu-sand/70 sm:text-xs">
+                DC · {employeeCode || "Coordinator"}
+                {districtCount > 0 ? ` · ${districtCount} district${districtCount > 1 ? "s" : ""}` : ""}
+              </p>
             </div>
           </Link>
 
           <nav
             className="ml-auto hidden min-w-0 flex-1 items-center justify-end gap-0.5 overflow-x-auto lg:flex xl:gap-1"
-            aria-label="VLE"
+            aria-label="Coordinator"
           >
-            {VLE_TABS.map((tab) => renderNavLink(tab))}
+            {COORDINATOR_TABS.map((tab) => renderNavLink(tab))}
           </nav>
 
           <div className="relative flex shrink-0 items-center gap-1 sm:gap-1.5">
@@ -163,7 +161,7 @@ export default function VleLayout() {
                   }}
                   role="menu"
                 >
-                  {VLE_MORE_LINKS.map((link) => (
+                  {COORDINATOR_MORE.map((link) => (
                     <Link
                       key={link.to}
                       to={link.to}
@@ -210,8 +208,8 @@ export default function VleLayout() {
             }}
           >
             <div className="mx-auto flex max-w-7xl flex-col gap-1">
-              {VLE_TABS.map((tab) => renderNavLink(tab))}
-              {VLE_MORE_LINKS.map((link) => (
+              {COORDINATOR_TABS.map((tab) => renderNavLink(tab))}
+              {COORDINATOR_MORE.map((link) => (
                 <Link
                   key={link.to}
                   to={link.to}
@@ -231,19 +229,18 @@ export default function VleLayout() {
         )}
       </header>
 
-      {/* Tablet: compact icon nav */}
       <nav
-        className="sticky top-[var(--vle-header-height,3.25rem)] z-30 hidden border-b border-[#D2DEFF] bg-white/95 px-2 py-2 backdrop-blur-sm md:flex lg:hidden"
-        aria-label="VLE tabs"
+        className="sticky top-[var(--coordinator-header-height,3.25rem)] z-30 hidden border-b border-[#D2DEFF] bg-white/95 px-2 py-2 backdrop-blur-sm md:flex lg:hidden"
+        aria-label="Coordinator tabs"
       >
         <div className="mx-auto flex w-full max-w-7xl items-center justify-center gap-1">
-          {VLE_TABS.map((tab) => (
+          {COORDINATOR_TABS.map((tab) => (
             <NavLink
               key={tab.id}
               to={tab.to}
               end={tab.end}
               className={({ isActive }) =>
-                `inline-flex flex-1 max-w-[8rem] flex-col items-center gap-0.5 rounded-xl px-2 py-2 text-[11px] font-medium transition-colors ${
+                `inline-flex flex-1 max-w-[7rem] flex-col items-center gap-0.5 rounded-xl px-1 py-2 text-[10px] font-medium transition-colors ${
                   isActive
                     ? "bg-[#1C39BB] text-white"
                     : "text-setu-muted hover:bg-[#EEF3FF] hover:text-[#1C39BB]"
@@ -257,13 +254,12 @@ export default function VleLayout() {
         </div>
       </nav>
 
-      {/* Mobile bottom nav — matches app-style thumb reach */}
       <nav
         className="app-bottom-nav fixed inset-x-0 bottom-0 z-40 border-t border-[#D2DEFF] bg-white/95 backdrop-blur-md md:hidden"
-        aria-label="VLE bottom navigation"
+        aria-label="Coordinator bottom navigation"
       >
         <div className="mx-auto flex max-w-lg items-stretch justify-around px-1 pt-1">
-          {VLE_TABS.map((tab) => (
+          {COORDINATOR_TABS.map((tab) => (
             <NavLink
               key={tab.id}
               to={tab.to}

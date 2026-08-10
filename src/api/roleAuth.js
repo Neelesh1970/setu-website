@@ -18,12 +18,41 @@ function vleAuthEndpoint(path) {
 
 // ─── VLE ───
 
-export async function registerVle({ name, phone, email, password }) {
+export async function fetchVleDistricts() {
+  const { response, data } = await parseJson(await fetch(vleUrl("/districts")))
+  if (!response.ok || !data.success) {
+    throw new Error(data.message || data.error || "Could not load districts.")
+  }
+  return data.data?.districts || []
+}
+
+export async function registerVle({
+  name,
+  phone,
+  email,
+  password,
+  district_id,
+  districtId,
+  state,
+  city,
+  village,
+  pincode,
+}) {
   const { response, data } = await parseJson(
     await fetch(vleAuthEndpoint("/register"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, phone, email, password }),
+      body: JSON.stringify({
+        name,
+        phone,
+        email,
+        password,
+        district_id: district_id || districtId,
+        state,
+        city,
+        village,
+        pincode,
+      }),
     }),
   )
   if (response.ok && data.success) {
@@ -94,7 +123,7 @@ export async function loginVle({ vleId, password }) {
       "VLE auth unavailable (502). Check auth_service is running on staging EC2.",
     )
   }
-  throw new Error(msg || "Invalid VLE ID or password.")
+  throw new Error(authErrorMessage(msg, response.status) || "Invalid VLE ID or password.")
 }
 
 export function isJwtExpired(token, skewSec = 30) {
@@ -138,11 +167,25 @@ export async function refreshVleToken(refreshToken) {
 
 function authErrorMessage(msg, status) {
   const text = String(msg || "")
+  if (status === 502 || status === 503 || status === 504) {
+    const authHost = import.meta.env.VITE_PROXY_AUTH_HOST || ""
+    const vleHost = import.meta.env.VITE_PROXY_VLE_HOST || ""
+    const localBackend =
+      /localhost|127\.0\.0\.1|:7005\b|:7035\b/.test(authHost) ||
+      /localhost|127\.0\.0\.1|:7035\b/.test(vleHost)
+    if (localBackend) {
+      return "Local backend unavailable. Start SETU-AUTH (port 7005) and SETU-VLE-service (port 7035), then refresh."
+    }
+    return "Backend temporarily unavailable. Try again in a moment."
+  }
   if (/invalid token.*vle dashboard access only/i.test(text)) {
     return "Wrong login type. Use /login → role VLE → VLE ID + password (not User OTP)."
   }
   if (/vle not found or inactive/i.test(text)) {
-    return "VLE account not found or inactive on staging. Re-register or contact admin."
+    return "Your VLE account is not active. Sign in again or contact support."
+  }
+  if (/rejected by district coordinator/i.test(text)) {
+    return text
   }
   if (/invalid or expired refresh token|invalid refresh token/i.test(text)) {
     if (typeof window !== "undefined") {
@@ -237,6 +280,56 @@ export async function vleAuthFetch(
     throw new Error(authErrorMessage(msg, response.status))
   }
   return data.data ?? data
+}
+
+// ─── Super Admin (SETU-AUTH + VLE admin APIs) ───
+
+function adminIsSuperAdmin(admin = {}) {
+  if (admin.is_super_admin) return true
+  const roles = Array.isArray(admin.roles) ? admin.roles : []
+  return roles.some((r) => String(r.role_name || "").toLowerCase() === "super_admin")
+}
+
+export async function loginSuperAdmin({ email, password }) {
+  const { response, data } = await parseJson(
+    await fetch(adminAuthUrl("/login"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: String(email || "").trim().toLowerCase(), password }),
+    }),
+  )
+  if (response.ok && data.success) {
+    const admin = data.admin || {}
+    if (!adminIsSuperAdmin(admin)) {
+      throw new Error("This account is not a Super Admin.")
+    }
+    return {
+      accountType: "super_admin",
+      token: data.token || "",
+      refreshToken: data.refreshToken || "",
+      admin_id: admin.id != null ? String(admin.id) : "",
+      name: admin.name || "",
+      email: admin.email || "",
+      mobile: admin.mobile || "",
+      roles: admin.roles || [],
+      isSuperAdmin: true,
+    }
+  }
+  throw new Error(data.error || data.message || "Login failed.")
+}
+
+export async function refreshSuperAdminToken(refreshToken) {
+  const { response, data } = await parseJson(
+    await fetch(adminAuthUrl("/refresh"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ refreshToken }),
+    }),
+  )
+  if (!response.ok || !data.token) {
+    throw new Error(data.error || data.message || "Session expired.")
+  }
+  return { token: data.token, refreshToken: data.refreshToken || refreshToken }
 }
 
 // ─── District Coordinator (Admin RBAC) ───
